@@ -1,8 +1,8 @@
 package user
 
 type User struct {
-    username string,
-    password []byte,
-    articles [][]byte,
-    following []*User
+    Username string
+    Password string
+    Articles []string
+    Following []*User
 }
