@@ -3,6 +3,9 @@
     <a href="/profile/">Profile</a>
     <a href="/logout/">Logout</a>
     <body>
+        {{ range .GetMyContent }}
+        <li>{{.Author}}: {{ .Content }} at {{.GetTimeWithUnixDateFormat}}</li>
+        {{ end }}
         This is the body.
     </body>
 </html>
