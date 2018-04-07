@@ -25,6 +25,7 @@ func createAndRegisterServerHandlers(
 func main() {
     port := flag.Int("port", 8080, "Serving port")
     pagesDir := flag.String("d", "pages", "Default directory of HTML pages")
+    flag.Parse()
 
     htmls := []string{
         "login",
