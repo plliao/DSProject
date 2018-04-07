@@ -30,13 +30,13 @@ func main() {
     htmls := []string{
         "login",
         "loginresult",
-        "signup",
+        "home",
     }
 
     apiToServerHandlerFuncMap := map[string]server.ServerHandlerFunc{
         "login":server.LoginHandler,
         "loginresult":server.LoginresultHandler,
-        "signup":server.SignupHandler,
+        "home":server.HomeHandler,
     }
 
     var srv server.Server

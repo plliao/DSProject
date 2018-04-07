@@ -25,7 +25,6 @@ type LogResult struct {
 
 
 func LoginHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
-	//http.Redirect(w, r, "/logresult", http.StatusFound)
 	var u User
 	RenderTemplate(w, srv, "login", u)
 	u.Username = r.FormValue("name")
@@ -38,25 +37,25 @@ func LoginresultHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
 		pw, ok := srv.users[r.FormValue("name")]
 		if(pw.Password == r.FormValue("password")){
 			logres.Result = "successfully"
-			//
+			http.Redirect(w, r, "/home/", http.StatusFound)
 		}else{
 			logres.Result = "failed"
-			logres.Message = "Wrong user."
 			if ok {
 				logres.Message = "Wrong password."
+			}else{
+				logres.Message = "Wrong user."
 			}
+			RenderTemplate(w, srv, "loginresult", logres)
 		}
-		RenderTemplate(w, srv, "loginresult", logres)
 
 	}else{
 		tmp := User{Username: r.FormValue("name"), Password:r.FormValue("password")}
 		srv.users[r.FormValue("name")] = &tmp
-		RenderTemplate(w, srv, "signup", logres)
-		//http.Redirect(w, r, "/signup/", http.StatusFound)
+		http.Redirect(w, r, "/home/", http.StatusFound)
 	}
 }
 
-func SignupHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
-	new_user := User{ Username:r.FormValue("name"), Password:r.FormValue("password")}
-	RenderTemplate(w, srv, "signup", new_user)
+func HomeHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
+	u := User{Username: r.FormValue("name"), Password: r.FormValue("password")}
+	RenderTemplate(w, srv, "home", u)
 }
