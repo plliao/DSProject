@@ -4,12 +4,25 @@ import (
 	"net/http"
 )
 
+type ServerHandlerFunc func(http.ResponseWriter, *http.Request, *Server)
+
+type HandlerFuncFactory struct {
+}
+
+func (factory *HandlerFuncFactory) CreateByServerHandlerFunc(
+        serverHandler ServerHandlerFunc, srv *Server) http.HandlerFunc {
+    return func (w http.ResponseWriter, r *http.Request) {
+        serverHandler(w, r, srv)
+    }
+}
+
 type LogResult struct {
 	Name string
 	Password string
 	Result string
 	Message string
 }
+
 
 func LoginHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
 	//http.Redirect(w, r, "/logresult", http.StatusFound)
@@ -18,6 +31,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
 	u.Username = r.FormValue("name")
 	u.Password = r.FormValue("password")
 }
+
 func LoginresultHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
 	logres := LogResult { Name:r.FormValue("name"), Password:r.FormValue("password")}
 	if(r.FormValue("choose") == "Log in"){
