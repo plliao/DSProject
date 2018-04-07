@@ -1,10 +1,7 @@
-package handler
+package server
 
 import (
 	"net/http"
-	server "../server"
-	user "../user"
-	render "../render"
 )
 
 type LogResult struct {
@@ -14,14 +11,14 @@ type LogResult struct {
 	Message string
 }
 
-func LoginHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
+func LoginHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
 	//http.Redirect(w, r, "/logresult", http.StatusFound)
-	var u user.User
-	render.RenderTemplate(w, "login", u)
+	var u User
+	RenderTemplate(w, "login", u)
 	u.Username = r.FormValue("name")
 	u.Password = r.FormValue("password")
 }
-func LoginresultHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
+func LoginresultHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
 	logres := LogResult { Name:r.FormValue("name"), Password:r.FormValue("password")}
 	if(r.FormValue("choose") == "Log in"){
 		pw, ok := srv.Users[r.FormValue("name")]
@@ -35,17 +32,17 @@ func LoginresultHandler(w http.ResponseWriter, r *http.Request, srv *server.Serv
 				logres.Message = "Wrong password."
 			}
 		}
-		render.RenderTemplate(w, "loginresult", logres)
+		RenderTemplate(w, "loginresult", logres)
 
 	}else{
-		tmp := user.User{Username: r.FormValue("name"), Password:r.FormValue("password")}
+		tmp := User{Username: r.FormValue("name"), Password:r.FormValue("password")}
 		srv.Users[r.FormValue("name")] = &tmp
-		render.RenderTemplate(w, "signup", logres)
+		RenderTemplate(w, "signup", logres)
 		//http.Redirect(w, r, "/signup/", http.StatusFound)
 	}
 }
 
-func SignupHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
-	new_user := user.User{ Username:r.FormValue("name"), Password:r.FormValue("password")} 
-	render.RenderTemplate(w, "signup", new_user)
+func SignupHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
+	new_user := User{ Username:r.FormValue("name"), Password:r.FormValue("password")}
+	RenderTemplate(w, "signup", new_user)
 }

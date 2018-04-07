@@ -3,15 +3,13 @@ package main
 import (
 	//render "./libs/render"
 	//handler "./libs/handler"
-	user "./libs/user"
-	server "./libs/server"
-	router "./libs/router"
+    "server"
 	//"router"
 	//"server"
 )
 
 func main() {
-	var server server.Server
-	server.Users = make(map[string]*user.User)
-	router.Route(&server)
+	var srv server.Server
+	srv.Users = make(map[string]*server.User)
+	server.Route(&srv)
 }

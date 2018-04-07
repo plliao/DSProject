@@ -1,16 +1,14 @@
-package router
+package server
 
 import (
     "net/http"
     "log"
     "regexp"
-    server "../server"
-    handler "../handler"
 )
 
 var validPath = regexp.MustCompile("^/(edit|save|view|login|loginresult|signup)/")
 
-func makeHandler(fn func(http.ResponseWriter, *http.Request, *server.Server), srv *server.Server) http.HandlerFunc {
+func makeHandler(fn func(http.ResponseWriter, *http.Request, *Server), srv *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		m := validPath.FindStringSubmatch(r.URL.Path)
 		if m == nil {
@@ -21,9 +19,9 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, *server.Server), sr
 	}
 }
 
-func Route(srv *server.Server) {
-	http.HandleFunc("/login/", makeHandler(handler.LoginHandler, srv))
-	http.HandleFunc("/loginresult/", makeHandler(handler.LoginresultHandler, srv))
-	http.HandleFunc("/signup/", makeHandler(handler.SignupHandler, srv))
+func Route(srv *Server) {
+	http.HandleFunc("/login/", makeHandler(LoginHandler, srv))
+	http.HandleFunc("/loginresult/", makeHandler(LoginresultHandler, srv))
+	http.HandleFunc("/signup/", makeHandler(SignupHandler, srv))
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

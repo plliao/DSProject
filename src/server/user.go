@@ -1,4 +1,4 @@
-package user
+package server
 
 type User struct {
     Username string
