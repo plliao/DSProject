@@ -29,7 +29,6 @@ func main() {
 
     htmls := []string{
         "login",
-        "loginresult",
         "home",
     }
 
