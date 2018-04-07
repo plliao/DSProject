@@ -1,15 +1,30 @@
 package main
 
 import (
-	//render "./libs/render"
-	//handler "./libs/handler"
+    "flag"
+    "strconv"
     "server"
-	//"router"
-	//"server"
 )
 
+func registerHTMLs(srv *server.Server, htmls []string, pagesDir string) {
+    surfix := ".html"
+    for _, htmlName := range htmls {
+        srv.RegisterHTML(htmlName, pagesDir + "/" + htmlName + surfix)
+    }
+}
+
 func main() {
-	var srv server.Server
-	srv.Users = make(map[string]*server.User)
-	server.Route(&srv)
+    port := flag.Int("port", 8080, "Serving port")
+    pagesDir := flag.String("d", "pages", "Default directory of HTML pages")
+
+    htmls := []string{
+        "login",
+        "loginresult",
+        "signup",
+    }
+
+    var srv server.Server
+    srv.Init()
+    registerHTMLs(&srv, htmls, *pagesDir)
+    srv.Start(strconv.Itoa(*port))
 }
