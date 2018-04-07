@@ -21,6 +21,11 @@ type LoginPage struct {
 	Message string
 }
 
+type FollowPage struct {
+    Following []string
+    Username string
+}
+
 func LoginHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
 	RenderTemplate(w, srv, "login", LoginPage{""})
 }
@@ -42,6 +47,11 @@ func LoginresultHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
         user.Post("Articl1")
         user.Post("Articl2")
         user.Post("Articl3")
+        srv.RegisterUser("Annie", "pass123")
+        srv.RegisterUser("Bobby", "pass123")
+        srv.RegisterUser("EdShreen", "pass123")
+        user.Follow(srv.users["Annie"])
+        user.Follow(srv.users["Bobby"])
 	    RenderTemplate(w, srv, "home", user)
     } else {
 	    RenderTemplate(w, srv, "login", LoginPage{err.Error()})
@@ -57,4 +67,13 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
     } else {
 	    RenderTemplate(w, srv, "home", user)
     }
+}
+
+func ProfileHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
+    username := r.FormValue("name")
+    u := FollowPage{Username:username}
+    for _, fu := range(srv.users[username].following){
+        u.Following = append(u.Following, fu.Username)
+    }
+    RenderTemplate(w, srv, "profile", u)
 }
