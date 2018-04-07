@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+    "fmt"
 )
 
 type ServerHandlerFunc func(http.ResponseWriter, *http.Request, *Server)
@@ -16,46 +17,44 @@ func (factory *HandlerFuncFactory) CreateByServerHandlerFunc(
     }
 }
 
-type LogResult struct {
-	Name string
-	Password string
-	Result string
+type LoginPage struct {
 	Message string
 }
 
-
 func LoginHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
-	var u User
-	RenderTemplate(w, srv, "login", u)
-	u.Username = r.FormValue("name")
-	u.Password = r.FormValue("password")
+	RenderTemplate(w, srv, "login", LoginPage{""})
 }
 
 func LoginresultHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
-	logres := LogResult { Name:r.FormValue("name"), Password:r.FormValue("password")}
-	if(r.FormValue("choose") == "Log in"){
-		pw, ok := srv.users[r.FormValue("name")]
-		if(pw.Password == r.FormValue("password")){
-			logres.Result = "successfully"
-			http.Redirect(w, r, "/home/", http.StatusFound)
-		}else{
-			logres.Result = "failed"
-			if ok {
-				logres.Message = "Wrong password."
-			}else{
-				logres.Message = "Wrong user."
-			}
-			RenderTemplate(w, srv, "loginresult", logres)
-		}
+    username := r.FormValue("name")
+    password := r.FormValue("password")
 
-	}else{
-		tmp := User{Username: r.FormValue("name"), Password:r.FormValue("password")}
-		srv.users[r.FormValue("name")] = &tmp
-		http.Redirect(w, r, "/home/", http.StatusFound)
+    var ok bool
+    var err error
+	if(r.FormValue("choose") == "Log in"){
+        ok, err = srv.ValidateUser(username, password)
+	} else {
+        ok, err = srv.RegisterUser(username, password)
 	}
+
+    if ok {
+        user := srv.users[username]
+        user.Post("Articl1")
+        user.Post("Articl2")
+        user.Post("Articl3")
+	    RenderTemplate(w, srv, "home", user)
+    } else {
+	    RenderTemplate(w, srv, "login", LoginPage{err.Error()})
+    }
 }
 
 func HomeHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
-	u := User{Username: r.FormValue("name"), Password: r.FormValue("password")}
-	RenderTemplate(w, srv, "home", u)
+    username := r.FormValue("name")
+    user, ok := srv.users[username]
+    fmt.Printf("Home%+v\n", user)
+    if !ok {
+        return
+    } else {
+	    RenderTemplate(w, srv, "home", user)
+    }
 }
