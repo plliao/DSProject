@@ -90,6 +90,11 @@ func (srv *Server) RegisterUser(username string, password string) (bool, error) 
     return true, nil
 }
 
+func (srv *Server) DeleteUser(user *User) {
+    srv.UserLogout(user)
+    delete(srv.users, user.Username)
+}
+
 func (srv *Server) RegisterHTML(name string, path string) {
     srv.htmls[name] = path
 }
