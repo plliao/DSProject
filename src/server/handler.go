@@ -1,7 +1,7 @@
 package server
 
 import (
-	"net/http"
+	  "net/http"
     "net/url"
     "errors"
 )
@@ -22,9 +22,14 @@ type LoginPage struct {
 	Message string
 }
 
+type FollowPage struct {
+    Following []string
+    Username string
+}
+
 func LoginHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
     message := r.URL.Query().Get("message")
-	RenderTemplate(w, srv, "login", LoginPage{message})
+	  RenderTemplate(w, srv, "login", LoginPage{message})
 }
 
 func HomeHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
@@ -63,3 +68,11 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
 	RenderTemplate(w, srv, "home", user)
 }
 
+func ProfileHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
+    username := r.FormValue("name")
+    u := FollowPage{Username:username}
+    for _, fu := range(srv.users[username].following){
+        u.Following = append(u.Following, fu.Username)
+    }
+    RenderTemplate(w, srv, "profile", u)
+}

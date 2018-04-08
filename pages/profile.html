@@ -1,0 +1,10 @@
+<h1>{{.Username}}'s Profile</h1>
+
+<form action="/profile/" method="POST">
+  <ul>
+    {{range $u := .Following}}
+      {{$u}}</a></li>
+      <br>
+    {{end}}
+  </ul>
+</form> 
