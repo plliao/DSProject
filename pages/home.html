@@ -1,7 +1,16 @@
 <html>
-    <a href="/home/">HOME</a>
-    <a href="/profile/">Profile</a>
-    <a href="/logout/">Logout</a>
+    <form action="/home/" method="POST">
+        {{ .Auth }}
+        <input type="submit" value="Home">
+     </form>
+    <form action="/profile/" method="POST">
+        {{ .Auth }}
+        <input type="submit" value="Profile">
+     </form>
+    <form action="/home/" method="POST">
+        {{ .Auth }}
+        <input type="submit" name="logout" value="logout">
+     </form>
     <body>
         <div>
             <form action="/home/" method="POST">
