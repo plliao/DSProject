@@ -3,6 +3,8 @@ package server
 import (
     "time"
     "sort"
+    "html/template"
+    "strings"
 )
 
 type Article struct {
@@ -18,6 +20,7 @@ func (article *Article) GetTimeWithUnixDateFormat() string {
 type User struct {
     Username string
     Password string
+    token string
     Articles []*Article
     following map[string]*User
 }
@@ -26,6 +29,19 @@ func (user *User) Init() {
     user.Articles = make([]*Article, 0)
     user.following = make(map[string]*User)
     user.following[user.Username] = user
+    user.token = ""
+}
+
+func (user *User) Auth() template.HTML {
+    htmlTokens := []string{
+        "<input",
+        "type=\"hidden\"",
+        "name=\"auth\"",
+        "value=\"" + user.token + "\"",
+        ">",
+        "</input>",
+    }
+    return template.HTML(strings.Join(htmlTokens, " "))
 }
 
 func (user *User) Post(content string) {
