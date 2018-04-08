@@ -1,11 +1,11 @@
 <h1>Log in</h1>
 
-<form action="/loginresult/" method="POST">
-    {{.Message}}
+<form action="/home/" method="POST">
+    {{.Message}}<br>
     Username:<br>
     <input type="text" name="name" value=""><br>
     Password:<br>
-    <input type="text" name="password" value=""><br><br>
+    <input type="password" name="password" value=""><br><br>
     <input type="submit" name = "choose" value="Log in">
     <input type="submit" name = "choose" value="Sign up">
 </form>
