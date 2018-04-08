@@ -2,7 +2,7 @@ package server
 
 import (
 	"net/http"
-    "fmt"
+    "net/url"
 )
 
 type ServerHandlerFunc func(http.ResponseWriter, *http.Request, *Server)
@@ -22,39 +22,31 @@ type LoginPage struct {
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
-	RenderTemplate(w, srv, "login", LoginPage{""})
+    message := r.URL.Query().Get("message")
+	RenderTemplate(w, srv, "login", LoginPage{message})
 }
 
-func LoginresultHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
+func HomeHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
     username := r.FormValue("name")
     password := r.FormValue("password")
+    choose := r.FormValue("choose")
 
-    var ok bool
+    ok := false
     var err error
-	if(r.FormValue("choose") == "Log in"){
+	if(choose == "Log in"){
         ok, err = srv.ValidateUser(username, password)
-	} else {
+	} else if (choose == "Sign up") {
         ok, err = srv.RegisterUser(username, password)
 	}
 
     if ok {
         user := srv.users[username]
         user.Post("Articl1")
-        user.Post("Articl2")
-        user.Post("Articl3")
 	    RenderTemplate(w, srv, "home", user)
     } else {
-	    RenderTemplate(w, srv, "login", LoginPage{err.Error()})
+        loginURLValues := url.Values{}
+        loginURLValues.Set("message", err.Error())
+        http.Redirect(w, r, "/login/?" + loginURLValues.Encode(), http.StatusFound)
     }
 }
 
-func HomeHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
-    username := r.FormValue("name")
-    user, ok := srv.users[username]
-    fmt.Printf("Home%+v\n", user)
-    if !ok {
-        return
-    } else {
-	    RenderTemplate(w, srv, "home", user)
-    }
-}
