@@ -1,19 +1,31 @@
-<h1>{{.User.Username}}'s Profile</h1>
-<form action="/home/" method="POST">
-	{{ .User.Auth }}
-    <input type="submit" name = "Return" value="HOME">
-</form>
-
-<br>
-<ul>
-{{range .FollowList}}
-    <form action="/profile/" method="POST">
-    	{{ .User.Auth }}
-    	<li>{{.Name}}
-        <input type="submit" name = "FollowOrNot" value={{.Action}}>
-        <input type="hidden" name = "Target" value={{.Name}}>
-        </li>
+<html>
+    <form action="/home/" method="POST">
+	    {{ .User.Auth }}
+        <input type="submit" value="Home">
     </form>
+    <form action="/home/" method="POST">
+        {{ .User.Auth }}
+        <input type="submit" name="logout" value="logout">
+     </form>
+    <body>
+    <h1>{{.User.Username}}'s Profile</h1>
+    <form>
+        {{ .User.Auth }}
+        <input type="submit" name="delete" value="Delete Account">
+    </form>
+
     <br>
-{{end}}
-</ul>
+    <ul>
+    {{range .FollowList}}
+        <form action="/profile/" method="POST">
+        	{{ .User.Auth }}
+    	    <li>{{.Name}}
+            <input type="submit" name = "FollowOrNot" value={{.Action}}>
+            <input type="hidden" name = "Target" value={{.Name}}>
+            </li>
+        </form>
+        <br>
+    {{end}}
+    </ul>
+    </body>
+</html>
