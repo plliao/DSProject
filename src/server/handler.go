@@ -26,10 +26,12 @@ type LoginPage struct {
 type FollowButton struct {
     Name string
     Action string
+    User *User
 }
 
 type FollowPage struct {
-    Username string
+    User *User
+    Auth string
     FollowList []FollowButton
 }
 
@@ -88,15 +90,24 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request, srv *Server){
     var follow_ FollowPage
     if srv.ValidateAuth(token) {
         user = srv.tokens[token]
+
+        if(r.FormValue("FollowOrNot") == "Unfollow"){
+            user.UnFollow(srv.users[r.FormValue("Target")])
+        }else if(r.FormValue("FollowOrNot") == "Follow"){
+            user.Follow(srv.users[r.FormValue("Target")])
+        }
+
         for u := range(srv.users){
             _, ok := user.following[u]
-            if(ok){
-                follow_action = append(follow_action, FollowButton{Name:u, Action:"Unfollow"})
+            if(u != user.Username){
+                if(ok){
+                    follow_action = append(follow_action, FollowButton{Name:u, Action:"Unfollow", User:user})
                 }else{
-                    follow_action = append(follow_action, FollowButton{Name:u, Action:"Follow"})
+                        follow_action = append(follow_action, FollowButton{Name:u, Action:"Follow", User:user})
                 }
+            }
         }
-        follow_ = FollowPage{ Username: user.Username, FollowList: follow_action}
+        follow_ = FollowPage{ User: user, FollowList: follow_action}
     } else {
         /*username := r.FormValue("name")
         password := r.FormValue("password")
