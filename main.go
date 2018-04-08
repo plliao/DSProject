@@ -34,7 +34,6 @@ func main() {
 
     apiToServerHandlerFuncMap := map[string]server.ServerHandlerFunc{
         "login":server.LoginHandler,
-        "loginresult":server.LoginresultHandler,
         "home":server.HomeHandler,
     }
 
