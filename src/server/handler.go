@@ -41,6 +41,12 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *Server) {
         if post != "" {
             user.Post(post)
         }
+        logout := r.FormValue("logout")
+        if logout != "" {
+            srv.UserLogout(user)
+            http.Redirect(w, r, "/login/", http.StatusFound)
+            return
+        }
     } else {
         username := r.FormValue("name")
         password := r.FormValue("password")
