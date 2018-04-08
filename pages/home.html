@@ -3,9 +3,19 @@
     <a href="/profile/">Profile</a>
     <a href="/logout/">Logout</a>
     <body>
+        <div>
+            <form action="/home/" method="POST">
+                {{ .Auth }}
+                <div>
+                    <textarea name="article" rows="10" cols="40">
+                        {{- "What's on your mind?" -}}
+                    </textarea>
+                </div>
+                <div><input type="submit" value="Save"></div>
+            </form>
+        </div>
         {{ range .GetMyContent }}
         <li>{{.Author}}: {{ .Content }} at {{.GetTimeWithUnixDateFormat}}</li>
         {{ end }}
-        This is the body.
     </body>
 </html>
