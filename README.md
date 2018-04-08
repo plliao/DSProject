@@ -25,3 +25,10 @@ I-TING CHEN | N19037964 | itc233@nyu.edu
     See more instrucitons by
   
     `./main -h`
+
+## API
+* Login and Signup
+
+    The entry of the web application is on here with default port number 8080.
+    
+    `http://hostname:8080/login/`
