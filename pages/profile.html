@@ -1,11 +1,15 @@
-<h1>{{.Username}}'s Profile</h1>
-
-<form action="/profile/" method="POST">
-  {{.Auth}}
-  <ul>
-    {{range $u := .Following}}
-      {{$u}}</a></li>
-      <br>
-    {{end}}
-  </ul>
-</form> 
+<h1>{{.User.Username}}'s Profile</h1>
+<form action="/home/" method="POST">
+	{{ .User.Auth }}
+    <input type="submit" name = "Return" value="Return">
+</form>
+<br>
+{{range .FollowList}}
+    {{.Name}}
+    <form action="/profile/" method="POST">
+    	{{ .User.Auth }}
+        <input type="submit" name = "FollowOrNot" value={{.Action}}>
+        <input type="hidden" name = "Target" value={{.Name}}>
+    </form>
+    <br>
+{{end}}
