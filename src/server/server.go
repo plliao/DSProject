@@ -6,6 +6,8 @@ import (
     "log"
     "regexp"
     "errors"
+    "crypto/rand"
+    "fmt"
 )
 
 type Server struct {
@@ -16,11 +18,14 @@ type Server struct {
 
     validUserName *regexp.Regexp
     validPassword *regexp.Regexp
+
+    tokens map[string]*User
 }
 
 func (srv *Server) Init() {
     srv.users = make(map[string]*User)
     srv.htmls = make(map[string]string)
+    srv.tokens = make(map[string]*User)
     srv.handlers = make(map[string]http.HandlerFunc)
 
     srv.validUserName, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
@@ -45,6 +50,28 @@ func (srv *Server) ValidateUser(username string, password string) (bool, error) 
         return true, nil
     }
     return false, errors.New("User not exists")
+}
+
+func (srv *Server) ValidateAuth(token string) bool {
+    if _, ok := srv.tokens[token]; ok {
+        return true
+    }
+    return false
+}
+
+func (srv *Server) UserLogout(user *User) {
+    if user.token != "" {
+        delete(srv.tokens, user.token)
+        user.token = ""
+    }
+}
+
+func (srv *Server) UserLogin(user *User) {
+    srv.UserLogout(user)
+    token := make([]byte, 6)
+    rand.Read(token)
+    user.token = fmt.Sprintf("%x", token)
+    srv.tokens[user.token] = user
 }
 
 func (srv *Server) RegisterUser(username string, password string) (bool, error) {
