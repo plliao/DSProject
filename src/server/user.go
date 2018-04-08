@@ -23,12 +23,14 @@ type User struct {
     token string
     Articles []*Article
     following map[string]*User
+    followers map[string]*User
 }
 
 func (user *User) Init() {
     user.Articles = make([]*Article, 0)
     user.following = make(map[string]*User)
     user.following[user.Username] = user
+    user.followers = make(map[string]*User)
     user.token = ""
 }
 
@@ -55,11 +57,13 @@ func (user *User) Post(content string) {
 
 func (follower *User) Follow(user *User) {
     follower.following[user.Username] = user
+    user.followers[follower.Username] = follower
 }
 
 func (follower *User) UnFollow(user *User) {
     if _, ok := follower.following[user.Username]; ok {
         delete(follower.following, user.Username)
+        delete(user.followers, follower.Username)
     }
 }
 
