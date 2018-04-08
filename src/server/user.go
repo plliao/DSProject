@@ -36,7 +36,7 @@ func (user *User) Auth() template.HTML {
     htmlTokens := []string{
         "<input",
         "type=\"hidden\"",
-        "name=\"auth\"",
+        "name=\"Auth\"",
         "value=\"" + user.token + "\"",
         ">",
         "</input>",
