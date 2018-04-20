@@ -9,6 +9,13 @@ Name | NID | Email
 PEI-LUN LIAO | N18410090 | pll273@nyu.edu
 I-TING CHEN | N19037964 | itc233@nyu.edu
 
+## Verison
+
+Assignment | Verison
+--- | ---:
+Part 1: Basic web app | 0.1.0 
+Part 2: Separating Front End and Back End | 0.2.0 
+
 ## Usage
 1. Set up GOPATH
 
