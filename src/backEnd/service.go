@@ -42,7 +42,7 @@ func (service *Service) UserLogin(args cmd.UserLoginArgs, reply *cmd.UserLoginRe
         reflect.TypeOf(cmd.UserLogin{}),
     )
 }
-*/
+
 func (service *Service) RegisterUser(args cmd.RegisterUserArgs, reply *cmd.RegisterUserReply) error {
     return service.makeRPCHandler(
         reflect.ValueOf(&args),
