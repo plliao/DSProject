@@ -5,29 +5,20 @@ import (
     "sort"
     "html/template"
     "strings"
+    "backEnd/cmd"
 )
-
-type Article struct {
-    Content string
-    Author string
-    Timestamp time.Time
-}
-
-func (article *Article) GetTimeWithUnixDateFormat() string {
-    return article.Timestamp.Format(time.UnixDate)
-}
 
 type User struct {
     Username string
     Password string
     token string
-    Articles []*Article
+    Articles []*cmd.Article
     following map[string]*User
     followers map[string]*User
 }
 
 func (user *User) Init() {
-    user.Articles = make([]*Article, 0)
+    user.Articles = make([]*cmd.Article, 0)
     user.following = make(map[string]*User)
     user.following[user.Username] = user
     user.followers = make(map[string]*User)
@@ -47,7 +38,7 @@ func (user *User) Auth() template.HTML {
 }
 
 func (user *User) Post(content string) {
-    article := &Article{
+    article := &cmd.Article{
         Content:content,
         Author:user.Username,
         Timestamp:time.Now(),
@@ -67,8 +58,8 @@ func (follower *User) UnFollow(user *User) {
     }
 }
 
-func (follower *User) GetMyContent() []*Article {
-    contents := make([]*Article, 0, 100)
+func (follower *User) GetMyContent() []*cmd.Article {
+    contents := make([]*cmd.Article, 0, 100)
     for _, user := range follower.following {
         contents = append(contents, user.Articles...)
     }
