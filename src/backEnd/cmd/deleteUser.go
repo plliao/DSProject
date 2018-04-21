@@ -6,6 +6,7 @@ type DeleteUserArgs struct {
 
 type DeleteUserReply struct {
     Ok bool
+    Error string
 }
 
 type DeleteUser struct {

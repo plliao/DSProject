@@ -7,8 +7,8 @@ type RegisterUserArgs struct {
 
 type RegisterUserReply struct {
     Ok bool
+    Error string
     Token string
-    Err error
 }
 
 type RegisterUser struct {

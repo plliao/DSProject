@@ -7,6 +7,7 @@ type UserLoginArgs struct {
 
 type UserLoginReply struct {
     Ok bool
+    Error string
     Token string
 }
 

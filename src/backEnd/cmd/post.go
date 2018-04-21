@@ -7,6 +7,7 @@ type PostArgs struct {
 
 type PostReply struct {
     Ok bool
+    Error string
 }
 
 type Post struct {

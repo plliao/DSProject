@@ -19,8 +19,9 @@ type GetMyContentArgs struct {
 }
 
 type GetMyContentReply struct {
-    Articles []*Article
     Ok bool
+    Error string
+    Articles []*Article
 }
 
 type GetMyContent struct {

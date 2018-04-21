@@ -6,6 +6,7 @@ type UserLogoutArgs struct {
 
 type UserLogoutReply struct {
     Ok bool
+    Error string
 }
 
 type UserLogout struct {
