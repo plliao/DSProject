@@ -1,8 +1,9 @@
-package server
+package backEnd
 
 import (
-    "html/template"
+    "net"
     "net/http"
+    "net/rpc"
     "log"
     "regexp"
     "errors"
@@ -10,14 +11,29 @@ import (
     "fmt"
 )
 
+type Command interface {
+}
+
 type Server struct {
     users map[string]*User
     tokens map[string]*User
+    commands chan Command
+
+    service *Service
+
+    validUserName *regexp.Regexp
+    validPassword *regexp.Regexp
 }
 
 func (srv *Server) Init() {
     srv.users = make(map[string]*User)
     srv.tokens = make(map[string]*User)
+    srv.commands = make(chan Command, 100)
+
+    srv.service = &Service{srv.commands}
+
+    srv.validUserName, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
+    srv.validPassword, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
 }
 
 func (srv *Server) validateUserNameAndPassFormat(username string, password string) (bool, error) {
@@ -86,6 +102,24 @@ func (srv *Server) DeleteUser(user *User) {
     delete(srv.users, user.Username)
 }
 
-func (srv *Server) Start(port string) {
+func (srv *Server) exec(cmd *Command) {
 
+}
+
+func (srv *Server) runCommands() {
+    for cmd := range srv.commands {
+        srv.exec(&cmd)
+    }
+}
+
+func (srv *Server) Start(port string) {
+    go srv.runCommands()
+
+    rpc.Register(srv.service)
+    rpc.HandleHTTP()
+    l, e := net.Listen("tcp", ":" + port)
+    if e != nil {
+        log.Fatal("listen error:", e)
+    }
+    http.Serve(l, nil)
 }
