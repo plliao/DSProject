@@ -3,7 +3,9 @@ package main
 import (
     "flag"
     "strconv"
-    "server"
+    "net/rpc"
+    "frontEnd/server"
+    "frontEnd/handler"
 )
 
 func registerHTMLs(srv *server.Server, htmls []string, pagesDir string) {
@@ -22,6 +24,16 @@ func createAndRegisterServerHandlers(
     }
 }
 
+func clientConnect(srv *server.Server, network string, serverAddress string) bool{
+    var err error
+    srv.SrvClient, err = rpc.DialHTTP(network, serverAddress)
+    if(err == nil){
+        return true
+    }else{
+        return false
+    }
+}
+
 func main() {
     port := flag.Int("port", 8080, "Serving port")
     pagesDir := flag.String("d", "pages", "Default directory of HTML pages")
@@ -34,14 +46,16 @@ func main() {
     }
 
     apiToServerHandlerFuncMap := map[string]server.ServerHandlerFunc{
-        "login":server.LoginHandler,
-        "home":server.HomeHandler,
-        "profile": server.ProfileHandler,
+        "login":handler.LoginHandler,
+        "home":handler.HomeHandler,
+        "profile": handler.ProfileHandler,
     }
 
     var srv server.Server
     srv.Init()
     registerHTMLs(&srv, htmls, *pagesDir)
     createAndRegisterServerHandlers(&srv, apiToServerHandlerFuncMap)
+    serverAddress := "..."
+    clientConnect(&srv, "tcp", serverAddress)
     srv.Start(strconv.Itoa(*port))
 }
