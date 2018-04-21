@@ -7,6 +7,7 @@ type UnFollowArgs struct {
 
 type UnFollowReply struct {
     Ok bool
+    Error string
 }
 
 type UnFollow struct {

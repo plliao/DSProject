@@ -10,9 +10,11 @@ import (
     "crypto/rand"
     "fmt"
     "reflect"
+    "backEnd/cmd"
 )
 
 type Command interface {
+
 }
 
 type Server struct {
@@ -21,6 +23,7 @@ type Server struct {
     commands chan reflect.Value
 
     service *Service
+    messages BackEndMessages
 
     validUserName *regexp.Regexp
     validPassword *regexp.Regexp
@@ -32,6 +35,16 @@ func (srv *Server) Init() {
     srv.commands = make(chan reflect.Value, 100)
 
     srv.service = &Service{srv.commands}
+    srv.messages = BackEndMessages{
+        NoError:"",
+        IncorrectFormat:"Incorrect username or password format",
+        IncorrectPassword:"Incorrect password",
+        UserNotExist:"User not exists",
+        UserAlreadyExist:"User already exists",
+        UnrecognizedToken:"Unrecognized token",
+        FunctionNotImplement:"Function not implemented",
+        EmptyToken:"",
+    }
 
     srv.validUserName, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
     srv.validPassword, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
@@ -39,52 +52,81 @@ func (srv *Server) Init() {
 
 func (srv *Server) validateUserNameAndPassFormat(username string, password string) (bool, error) {
     if !srv.validUserName.Match([]byte(username)) || !srv.validPassword.Match([]byte(password)) {
-        return false, errors.New("Incorrect username or password format")
+        return false, errors.New(srv.messages.IncorrectFormat)
     }
     return true, nil
 }
 
-func (srv *Server) ValidateUser(username string, password string) (bool, error) {
+func (srv *Server) validateUser(username string, password string) (bool, error) {
     if ok, err := srv.validateUserNameAndPassFormat(username, password); !ok {
         return ok, err
     }
     if user, ok := srv.users[username]; ok {
         if user.Password != password {
-            return false, errors.New("Incorrect password")
+            return false, errors.New(srv.messages.IncorrectPassword)
         }
         return true, nil
     }
-    return false, errors.New("User not exists")
+    return false, errors.New(srv.messages.UserNotExist)
 }
 
-func (srv *Server) ValidateAuth(token string) bool {
+func (srv *Server) validateAuth(token string) bool {
     if _, ok := srv.tokens[token]; ok {
         return true
     }
     return false
 }
 
-func (srv *Server) UserLogout(user *User) {
-    if user.token != "" {
-        delete(srv.tokens, user.token)
-        user.token = ""
-    }
-}
-
-func (srv *Server) UserLogin(user *User) {
-    srv.UserLogout(user)
+func (srv *Server) generateUserToken(user *User) {
+    srv.deleteUserToken(user)
     token := make([]byte, 6)
     rand.Read(token)
     user.token = fmt.Sprintf("%x", token)
     srv.tokens[user.token] = user
 }
 
-func (srv *Server) RegisterUser(username string, password string) (bool, string, error) {
+func (srv *Server) deleteUserToken(user *User) {
+    if user.token != "" {
+        delete(srv.tokens, user.token)
+        user.token = ""
+    }
+}
+
+func (srv *Server) removeUser(user *User) {
+    srv.deleteUserToken(user)
+    for _, follower := range user.followers {
+        follower.UnFollow(user)
+    }
+    delete(srv.users, user.Username)
+}
+
+func (srv *Server) UserLogout(token string) (bool, string) {
+    ok := srv.validateAuth(token)
+    if ok {
+        user := srv.tokens[token]
+        srv.deleteUserToken(user)
+        return true, srv.messages.NoError
+    }
+    return false, srv.messages.UnrecognizedToken
+}
+
+func (srv *Server) UserLogin(username string, password string) (bool, string, string) {
+    ok, err := srv.validateUser(username, password)
+    if ok {
+        user := srv.users[username]
+        srv.generateUserToken(user)
+        return true, srv.messages.NoError, user.token
+    }
+    return false, err.Error(), srv.messages.EmptyToken
+}
+
+
+func (srv *Server) RegisterUser(username string, password string) (bool, string, string) {
     if ok, err := srv.validateUserNameAndPassFormat(username, password); !ok {
-        return ok, "", err
+        return ok, err.Error(), srv.messages.EmptyToken
     }
     if _, ok := srv.users[username]; ok {
-        return false, "", errors.New("User already exists")
+        return false, srv.messages.UserAlreadyExist, srv.messages.EmptyToken
     }
     newUser := &User{
         Username:username,
@@ -92,35 +134,77 @@ func (srv *Server) RegisterUser(username string, password string) (bool, string,
     }
     newUser.Init()
     srv.users[username] = newUser
-    srv.UserLogin(newUser)
-    return true, newUser.token, nil
+    srv.generateUserToken(newUser)
+    return true, srv.messages.NoError, newUser.token
 }
 
-func (srv *Server) DeleteUser(user *User) {
-    srv.UserLogout(user)
-    for _, follower := range user.followers {
-        follower.UnFollow(user)
+func (srv *Server) DeleteUser(token string) (bool, string) {
+    ok := srv.validateAuth(token)
+    if ok {
+        user := srv.tokens[token]
+        srv.removeUser(user)
+        return true, srv.messages.NoError
     }
-    delete(srv.users, user.Username)
+    return false, srv.messages.UnrecognizedToken
 }
+
+func (srv *Server) Post(token string, content string) (bool, string) {
+    ok := srv.validateAuth(token)
+    if ok {
+        user := srv.tokens[token]
+        user.Post(content)
+        return true, srv.messages.NoError
+    }
+    return false, srv.messages.UnrecognizedToken
+}
+
+func (srv *Server) Follow(token string, username string) (bool, string) {
+    ok := srv.validateAuth(token)
+    if ok {
+        follower := srv.tokens[token]
+        if user, hasUser := srv.users[username]; hasUser {
+            follower.Follow(user)
+            return true, srv.messages.NoError
+        }
+        return false, username + " " + srv.messages.UserNotExist
+    }
+    return false, srv.messages.UnrecognizedToken
+}
+
+func (srv *Server) UnFollow(token string, username string) (bool, string) {
+    ok := srv.validateAuth(token)
+    if ok {
+        follower := srv.tokens[token]
+        if user, hasUser := srv.users[username]; hasUser {
+            follower.UnFollow(user)
+            return true, srv.messages.NoError
+        }
+        return false, username + " " + srv.messages.UserNotExist
+    }
+    return false, srv.messages.UnrecognizedToken
+}
+
+func (srv *Server) GetMyContent(token string) (bool, string, []*cmd.Article) {
+    ok := srv.validateAuth(token)
+    if ok {
+        user := srv.tokens[token]
+        return true, srv.messages.NoError, user.GetMyContent()
+    }
+    return false, srv.messages.UnrecognizedToken, nil
+}
+
 
 func (srv *Server) getFuncAndParameters(cmdValue reflect.Value) (reflect.Value, []reflect.Value) {
-    offset := 0
-
     srvValue := reflect.ValueOf(srv)
     f := srvValue.MethodByName(cmdValue.Type().Name())
     if !f.IsValid() {
-        token := cmdValue.Field(0).Elem().Field(0).Interface().(string)
-        user := srv.tokens[token]
-        userValue := reflect.ValueOf(user)
-        f = userValue.MethodByName(cmdValue.Type().Name())
-        offset = 1
+            return f, nil
     }
 
-    numberOfParameters := cmdValue.Field(0).Elem().NumField() - offset
+    numberOfParameters := cmdValue.Field(0).Elem().NumField()
     parameters := make([]reflect.Value, numberOfParameters, numberOfParameters)
     for i:=0; i<numberOfParameters; i++ {
-        parameters[i] = cmdValue.Field(0).Elem().Field(i + offset)
+        parameters[i] = cmdValue.Field(0).Elem().Field(i)
     }
 
     return f, parameters
@@ -128,21 +212,20 @@ func (srv *Server) getFuncAndParameters(cmdValue reflect.Value) (reflect.Value, 
 
 func (srv *Server) exec(cmdValue reflect.Value) {
     f, parameters := srv.getFuncAndParameters(cmdValue)
-    fmt.Printf("+%v\n", f)
-    results := f.Call(parameters)
-    fmt.Printf("+%v\n", results)
-
     replyType := cmdValue.Field(1).Type().Elem().Elem()
     reply := reflect.New(replyType)
-    offset := 0
-    for index, value := range results {
-        if index == 0 && value.Type().Name() != "bool" {
-            reply.Elem().Field(0).Set(reflect.ValueOf(true))
-            offset = 1
+
+    if f.IsValid() {
+        results := f.Call(parameters)
+        for index, value := range results {
+            reply.Elem().Field(index).Set(value)
         }
-        reply.Elem().Field(index + offset).Set(value)
+    } else {
+        reply.Elem().Field(0).Set(reflect.ValueOf(false))
+        reply.Elem().Field(1).Set(reflect.ValueOf(srv.messages.FunctionNotImplement))
     }
-    fmt.Printf("+%v\n", reply)
+
+    fmt.Printf("Command: %v, reply: %v\n", cmdValue.Type().Name(), reply)
     cmdValue.Field(1).Send(reply)
 }
 
@@ -163,3 +246,4 @@ func (srv *Server) Start(port string) {
     }
     http.Serve(l, nil)
 }
+

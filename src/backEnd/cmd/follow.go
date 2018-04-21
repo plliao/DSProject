@@ -7,6 +7,7 @@ type FollowArgs struct {
 
 type FollowReply struct {
     Ok bool
+    Error string
 }
 
 type Follow struct {
