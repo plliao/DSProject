@@ -9,6 +9,7 @@ import (
     "errors"
     "crypto/rand"
     "fmt"
+    "reflect"
 )
 
 type Command interface {
@@ -17,7 +18,7 @@ type Command interface {
 type Server struct {
     users map[string]*User
     tokens map[string]*User
-    commands chan Command
+    commands chan reflect.Value
 
     service *Service
 
@@ -28,7 +29,7 @@ type Server struct {
 func (srv *Server) Init() {
     srv.users = make(map[string]*User)
     srv.tokens = make(map[string]*User)
-    srv.commands = make(chan Command, 100)
+    srv.commands = make(chan reflect.Value, 100)
 
     srv.service = &Service{srv.commands}
 
@@ -78,12 +79,12 @@ func (srv *Server) UserLogin(user *User) {
     srv.tokens[user.token] = user
 }
 
-func (srv *Server) RegisterUser(username string, password string) (bool, error) {
+func (srv *Server) RegisterUser(username string, password string) (bool, string, error) {
     if ok, err := srv.validateUserNameAndPassFormat(username, password); !ok {
-        return ok, err
+        return ok, "", err
     }
     if _, ok := srv.users[username]; ok {
-        return false, errors.New("User already exists")
+        return false, "", errors.New("User already exists")
     }
     newUser := &User{
         Username:username,
@@ -91,7 +92,8 @@ func (srv *Server) RegisterUser(username string, password string) (bool, error) 
     }
     newUser.Init()
     srv.users[username] = newUser
-    return true, nil
+    srv.UserLogin(newUser)
+    return true, newUser.token, nil
 }
 
 func (srv *Server) DeleteUser(user *User) {
@@ -102,13 +104,51 @@ func (srv *Server) DeleteUser(user *User) {
     delete(srv.users, user.Username)
 }
 
-func (srv *Server) exec(cmd *Command) {
+func (srv *Server) getFuncAndParameters(cmdValue reflect.Value) (reflect.Value, []reflect.Value) {
+    offset := 0
 
+    srvValue := reflect.ValueOf(srv)
+    f := srvValue.MethodByName(cmdValue.Type().Name())
+    if !f.IsValid() {
+        token := cmdValue.Field(0).Elem().Field(0).Interface().(string)
+        user := srv.tokens[token]
+        userValue := reflect.ValueOf(user)
+        f = userValue.MethodByName(cmdValue.Type().Name())
+        offset = 1
+    }
+
+    numberOfParameters := cmdValue.Field(0).Elem().NumField() - offset
+    parameters := make([]reflect.Value, numberOfParameters, numberOfParameters)
+    for i:=0; i<numberOfParameters; i++ {
+        parameters[i] = cmdValue.Field(0).Elem().Field(i + offset)
+    }
+
+    return f, parameters
+}
+
+func (srv *Server) exec(cmdValue reflect.Value) {
+    f, parameters := srv.getFuncAndParameters(cmdValue)
+    fmt.Printf("+%v\n", f)
+    results := f.Call(parameters)
+    fmt.Printf("+%v\n", results)
+
+    replyType := cmdValue.Field(1).Type().Elem().Elem()
+    reply := reflect.New(replyType)
+    offset := 0
+    for index, value := range results {
+        if index == 0 && value.Type().Name() != "bool" {
+            reply.Elem().Field(0).Set(reflect.ValueOf(true))
+            offset = 1
+        }
+        reply.Elem().Field(index + offset).Set(value)
+    }
+    fmt.Printf("+%v\n", reply)
+    cmdValue.Field(1).Send(reply)
 }
 
 func (srv *Server) runCommands() {
     for cmd := range srv.commands {
-        srv.exec(&cmd)
+        srv.exec(cmd)
     }
 }
 
