@@ -5,6 +5,7 @@ import (
     "net/http"
     "log"
     "net/rpc"
+    "fmt"
 )
 
 type Server struct {
@@ -30,6 +31,7 @@ func (srv *Server) RegisterHandlerFunc(api string, handler http.HandlerFunc) {
 }
 
 func (srv *Server) Start(port string) {
+    fmt.Print("FrontEnd server Start...\n")
     srv.createTemplates()
     Route(srv)
     log.Fatal(http.ListenAndServe(":" + port, nil))
