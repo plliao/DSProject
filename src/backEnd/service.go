@@ -90,3 +90,12 @@ func (service *Service) GetMyContent(args cmd.GetMyContentArgs, reply *cmd.GetMy
         reflect.TypeOf(cmd.GetMyContent{}),
     )
 }
+
+func (service *Service) GetFollower(args cmd.GetFollowerArgs, reply *cmd.GetFollowerReply) error {
+    return service.makeRPCHandler(
+        reflect.ValueOf(&args),
+        reflect.ValueOf(reply),
+        reflect.TypeOf(cmd.GetFollower{}),
+    )
+}
+
