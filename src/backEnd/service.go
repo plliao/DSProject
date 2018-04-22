@@ -1,7 +1,6 @@
 package backEnd
 
 import (
-    "errors"
     "reflect"
     "backEnd/cmd"
 )
@@ -17,14 +16,11 @@ func (service *Service) makeRPCHandler(args reflect.Value, reply reflect.Value, 
     command.Field(0).Set(args)
     command.Field(1).Set(channel)
     service.commands <- command
-    result, ok := channel.Recv()
+    result, _ := channel.Recv()
     for i:=0; i<reply.Elem().NumField(); i++ {
         reply.Elem().Field(i).Set(result.Elem().Field(i))
     }
-    if ok && result.Elem().Field(0).Bool() {
-        return nil
-    }
-    return errors.New(result.Elem().Field(1).String())
+    return nil
 }
 
 func (service *Service) UserLogout(args cmd.UserLogoutArgs, reply *cmd.UserLogoutReply) error {
