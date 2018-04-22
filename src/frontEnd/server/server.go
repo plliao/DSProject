@@ -12,8 +12,18 @@ type Server struct {
     htmls map[string]string // name -> filepath
     handlers map[string]http.HandlerFunc // api -> handler
     templates *template.Template
+    serverAddress string
+    network string
+}
 
-    SrvClient *rpc.Client
+func (srv *Server)ClientConnect() (*rpc.Client, error){
+    client, err := rpc.DialHTTP(srv.network, srv.serverAddress)
+    return client, err
+}
+
+func (srv *Server) InitialDial(network string, serverAddress string){
+    srv.serverAddress = serverAddress
+    srv.network = network
 }
 
 func (srv *Server) Init() {

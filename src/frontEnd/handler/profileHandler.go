@@ -4,13 +4,18 @@ import (
 	"net/http"
     "net/url"
     "frontEnd/server"
+    "log"
 )
 
 func ProfileHandler(w http.ResponseWriter, r *http.Request, srv *server.Server){
     token := r.FormValue("Auth")
     username := r.FormValue("name")
     user := &User{ token:token , Username:username}
-    errmsg, reply := ClientGetFollowerRPC(token, srv)
+    client, dialerr := srv.ClientConnect()
+    if(dialerr != nil){
+        log.Fatal("LoginRPC:", dialerr)
+    }
+    errmsg, reply := ClientGetFollowerRPC(token, client)
     if(!reply.Ok){
         loginURLValues := url.Values{}
         loginURLValues.Set("message", errmsg)
@@ -32,7 +37,7 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request, srv *server.Server){
     deleteAccount := r.FormValue("delete")
 
     if deleteAccount != "" {
-    	errmsg, reply := ClientDeleteUserRPC(user.token, srv)
+    	errmsg, reply := ClientDeleteUserRPC(user.token, client)
         if(reply.Ok){
             loginURLValues := url.Values{}
             loginURLValues.Set("message", errmsg)
@@ -41,12 +46,12 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request, srv *server.Server){
         }
     }
     if action == "Unfollow" {
-        err, reply := ClientUnFollowRPC(user.token, target, srv)
+        err, reply := ClientUnFollowRPC(user.token, target, client)
         if(err == nil && reply.Ok){
             user.Others[userMap[target]].Action = "Follow"
         }
     }else if(action == "Follow"){
-        err, reply := ClientFollowRPC(user.token, target, srv)
+        err, reply := ClientFollowRPC(user.token, target, client)
         if(err == nil && reply.Ok){
             user.Others[userMap[target]].Action = "Unfollow"
         }
