@@ -1,6 +1,7 @@
 <html>
     <form action="/home/" method="POST">
         {{ .Auth }}
+        <input type="hidden" name="name" value={{.Username}}>
         <input type="submit" value="Home">
      </form>
     <form action="/profile/" method="POST">
@@ -16,6 +17,7 @@
         <div>
             <form action="/home/" method="POST">
                 {{ .Auth }}
+                <input type="hidden" name="name" value={{.Username}}>
                 <div>
                     <textarea name="article" rows="10" cols="40">
                         {{- "What's on your mind?" -}}
