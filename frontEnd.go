@@ -3,11 +3,8 @@ package main
 import (
     "flag"
     "strconv"
-    "net/rpc"
     "frontEnd/server"
     "frontEnd/handler"
-    "fmt"
-    "log"
 )
 
 func registerHTMLs(srv *server.Server, htmls []string, pagesDir string) {
@@ -26,16 +23,14 @@ func createAndRegisterServerHandlers(
     }
 }
 
-func clientConnect(srv *server.Server, network string, serverAddress string) error{
-    fmt.Print("Dial...\n")
-    var err error
-    srv.SrvClient, err = rpc.DialHTTP(network, serverAddress)
-    return err
+func createBackEndAddress(srv *server.Server, network string, serverAddress string) {
+    srv.InitialDial(network, serverAddress)
+    return
 }
 
 func main() {
-    port := flag.Int("port", 8811, "Serving port")
-    backendServer := flag.String("b", "localhost:80", "backend server ip and port e.g. 127.0.0.1:80")
+    port := flag.Int("port", 8080, "Serving port")
+    backendServer := flag.String("b", "71.125.15.10:80", "71.125.15.10:80")
     pagesDir := flag.String("d", "pages", "Default directory of HTML pages")
     flag.Parse()
 
@@ -56,11 +51,6 @@ func main() {
     registerHTMLs(&srv, htmls, *pagesDir)
     createAndRegisterServerHandlers(&srv, apiToServerHandlerFuncMap)
     serverAddress := *backendServer
-    err := clientConnect(&srv, "tcp", serverAddress)
-    if(err != nil){
-        log.Fatal("dialing:", err)
-    }else{
-        fmt.Print("Dial succeed\n")
-        srv.Start(strconv.Itoa(*port))
-    }
+    createBackEndAddress(&srv, "tcp", serverAddress)
+    srv.Start(strconv.Itoa(*port))
 }
