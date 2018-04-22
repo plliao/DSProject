@@ -4,9 +4,7 @@ import (
     "html/template"
     "net/http"
     "log"
-    "regexp"
-    "errors"
-    "crypto/rand"
+    "net/rpc"
     "fmt"
 )
 
@@ -15,16 +13,13 @@ type Server struct {
     handlers map[string]http.HandlerFunc // api -> handler
     templates *template.Template
 
-    validUserName *regexp.Regexp
-    validPassword *regexp.Regexp
+    SrvClient *rpc.Client
 }
 
 func (srv *Server) Init() {
     srv.htmls = make(map[string]string)
     srv.handlers = make(map[string]http.HandlerFunc)
-
-    srv.validUserName, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
-    srv.validPassword, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
+    //srv.client = make(rpc.Client)
 }
 
 func (srv *Server) RegisterHTML(name string, path string) {
@@ -36,6 +31,7 @@ func (srv *Server) RegisterHandlerFunc(api string, handler http.HandlerFunc) {
 }
 
 func (srv *Server) Start(port string) {
+    fmt.Print("FrontEnd server Start...\n")
     srv.createTemplates()
     Route(srv)
     log.Fatal(http.ListenAndServe(":" + port, nil))

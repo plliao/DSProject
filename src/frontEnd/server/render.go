@@ -17,3 +17,15 @@ func RenderTemplate(w http.ResponseWriter, srv *Server, name string, data interf
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
+
+type ServerHandlerFunc func(http.ResponseWriter, *http.Request, *Server)
+
+type HandlerFuncFactory struct {
+}
+
+func (factory *HandlerFuncFactory) CreateByServerHandlerFunc(
+        serverHandler ServerHandlerFunc, srv *Server) http.HandlerFunc {
+    return func (w http.ResponseWriter, r *http.Request) {
+        serverHandler(w, r, srv)
+    }
+}
