@@ -3,22 +3,24 @@ package handler
 import (
 	"net/http"
     "frontEnd/server"
+    //"backEnd/cmd"
 )
 
 func ProfileHandler(w http.ResponseWriter, r *http.Request, srv *server.Server){
-    //var user *User
     //var buttons []FollowButton
+    token := r.FormValue("Auth")
+    var user User
+    user.token = token
     var profile ProfilePage
     if (true) {
-        //user = srv.tokens[token]
         //action := r.FormValue("FollowOrNot")
         //target := r.FormValue("Target")
         deleteAccount := r.FormValue("delete")
 
         if deleteAccount != "" {
-        	args := DeleteArg{ Username:"test" }
-            var reply DeleteReply
-            srv.SrvClient.Call("Server.DeleteUser", args, &reply)
+        	//args := cmd.DeleteUserArgs{ Token:token }
+            //var reply DeleteReply
+            //srv.SrvClient.Call("Server.DeleteUser", args, &reply)
             http.Redirect(w, r, "/login/", http.StatusFound)
             return
         }

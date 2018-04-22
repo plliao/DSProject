@@ -2,18 +2,19 @@ package handler
 
 import (
 	"net/http"
-    "time"
+    "net/url"
     "frontEnd/server"
     "backEnd/cmd"
     //"errors"
     "strings"
     "html/template"
+    "log"
 )
 
 type User struct {
     Username string
     Password string
-    Articles []Article
+    Articles []*cmd.Article
     token string
     //following map[string]*User
     //followers map[string]*User
@@ -31,20 +32,22 @@ func (user *User) Auth() template.HTML {
     return template.HTML(strings.Join(htmlTokens, " "))
 }
 
-type Article struct {
-    Content string
-    Author string
-    Timestamp time.Time
-}
-
 type ClientReply struct {
     Ok bool
     Token string
     Error string
 }
 
-func (article *Article) GetTimeWithUnixDateFormat() string {
-    return article.Timestamp.Format(time.UnixDate)
+type FollowButton struct {
+    Name string
+    Action string
+    User *User
+}
+
+type ProfilePage struct {
+    User *User
+    Auth string
+    FollowList []FollowButton
 }
 
 type LoginPage struct {
@@ -61,7 +64,9 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
     password := r.FormValue("password")
     choose := r.FormValue("choose")
 
-    user := User{ Username:username }
+    userref := User{ Username:username }
+    user := &userref
+    user.token = r.FormValue("Auth")
 
     if(choose == "Sign up" || choose == "Log in"){
         var clientReply ClientReply
@@ -69,17 +74,21 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
         if(choose == "Sign up"){
             args := cmd.RegisterUserArgs{ Username:username, Password:password }
             var reply cmd.RegisterUserReply
-            err = srv.SrvClient.Call("Server.RegisterUser", args, &reply)
+            err = srv.SrvClient.Call("Service." + "RegisterUser", args, &reply)
             clientReply = ClientReply{ reply.Ok, reply.Token, reply.Error }
         } else if(choose == "Log in"){
             args := cmd.UserLoginArgs{ Username:username, Password:password }
             var reply cmd.UserLoginReply
-            err = srv.SrvClient.Call("Server.ValidateUser", args, &reply)
+            err = srv.SrvClient.Call("Service." + "UserLogin", args, &reply)
             clientReply = ClientReply{ reply.Ok, reply.Token, reply.Error }
         }
         if(err == nil && clientReply.Ok){
             user.token = clientReply.Token
         }else {
+            if(err != nil){
+                log.Fatal("dialing:", err)
+            }
+            loginURLValues := url.Values{}
             loginURLValues.Set("message", clientReply.Error)
             http.Redirect(w, r, "/login/?" + loginURLValues.Encode(), http.StatusFound)
             return
@@ -91,7 +100,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
             args := cmd.PostArgs { Token:user.token, Content:post }
             var reply cmd.PostReply
             err := srv.SrvClient.Call("User.Post", args, &reply)
-            if(err != nil || !reply.Ok){
+            if(err != nil ){
                 http.Redirect(w, r, "/login/", http.StatusFound)
                 return
             }
@@ -99,7 +108,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
         if (logout != "") {
             args := cmd.UserLogoutArgs{ Token:user.token }
             var reply cmd.UserLogoutReply
-            err := srv.SrvClient.Call("Server.UserLogout", args, &reply)
+            err := srv.SrvClient.Call("Service" + "UserLogout", args, &reply)
             if(err == nil && reply.Ok){
                 http.Redirect(w, r, "/login/", http.StatusFound)
             }
@@ -107,8 +116,8 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
         }
         args := cmd.GetMyContentArgs{ Token:user.token }
         var reply cmd.GetMyContentReply
-        err := srv.SrvClient.Call("User.GetMyContent", args, &reply)
-        if(err == nil && reply.ok){
+        err := srv.SrvClient.Call("Service" + "GetMyContent", args, &reply)
+        if(err == nil && reply.Ok){
             user.Articles = reply.Articles
         }
     }
