@@ -2,31 +2,31 @@ package handler
 
 import (
 	"net/http"
+    "net/url"
     "frontEnd/server"
     "backEnd/cmd"
+    //"errors"
+    //"strings"
+    //"html/template"
+    //"log"
 )
 
-type FollowButton struct {
+/*type FollowButton struct {
     Name string
     Action string
     User *User
-}
-
-type ProfilePage struct {
-    User *User
-    Auth string
-    FollowList []FollowButton
-}
+}*/
 
 func ProfileHandler(w http.ResponseWriter, r *http.Request, srv *server.Server){
-    var buttons []FollowButton
     token := r.FormValue("Auth")
-    user := &User{ token:token }
+    username := r.FormValue("name")
+    user := &User{ token:token , Username:username}
 
     args := cmd.GetFollowerArgs{ Token:user.token }
     var reply cmd.GetFollowerReply 
-    err := srv.SrvClient.Call("Service." + "GetFollower", args, &reply)
+    srv.SrvClient.Call("Service." + "GetFollower", args, &reply)
     errmsg := ""
+    userMap := make(map[string]int)
 
     if(!reply.Ok){
         errmsg = "Wrong User."
@@ -34,17 +34,22 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request, srv *server.Server){
         loginURLValues.Set("message", errmsg)
         http.Redirect(w, r, "/login/?" + loginURLValues.Encode(), http.StatusFound)
     }
-    user.following = reply.following
-    user.unfollowing = reply.unfollowing
+    for i, u := range(reply.Relationships){
+        tmpAction := "Follow"
+        if(u.Following){
+            tmpAction = "Unfollow"
+        }
+        user.Others = append(user.Others, Relationship{Username:u.Username, Action:tmpAction})
+        userMap[u.Username] = i
+    }
 
-    var profile ProfilePage
     action := r.FormValue("FollowOrNot")
     target := r.FormValue("Target")
     deleteAccount := r.FormValue("delete")
 
     if deleteAccount != "" {
     	args := cmd.DeleteUserArgs{ Token:token }
-        var reply DeleteReply
+        var reply cmd.DeleteUserReply
         err := srv.SrvClient.Call("Service." + "DeleteUser", args, &reply)
         errmsg := ""
         if(err != nil || !reply.Ok){
@@ -55,24 +60,21 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request, srv *server.Server){
         http.Redirect(w, r, "/login/?" + loginURLValues.Encode(), http.StatusFound)
         return
     }
-
     if action == "Unfollow" {
-        user.UnFollow(srv.users[target])
+        args := cmd.UnFollowArgs{ Token:token, Username:target}
+        var reply cmd.UnFollowReply
+        srv.SrvClient.Call("Service." + "UnFollow", args, &reply)
+        if(reply.Ok){
+            user.Others[userMap[target]].Action = "Follow"
+        }
     }else if(action == "Follow"){
-        user.Follow(srv.users[target])
-    }
-
-    for u := range(srv.users){
-        _, ok := user.following[u]
-        if u != user.Username {
-            if ok {
-                buttons = append(buttons, FollowButton{Name:u, Action:"Unfollow", User:user})
-            } else {
-                buttons = append(buttons, FollowButton{Name:u, Action:"Follow", User:user})
-            }
+        args := cmd.FollowArgs{ Token:token, Username:target}
+        var reply cmd.FollowReply
+        srv.SrvClient.Call("Service." + "Follow", args, &reply)
+        if(reply.Ok){
+            user.Others[userMap[target]].Action = "Unfollow"
         }
     }
-    profile = ProfilePage{User:user, FollowList:buttons}
-    server.RenderTemplate(w, srv, "profile", profile)
+    server.RenderTemplate(w, srv, "profile", user)
 }
 

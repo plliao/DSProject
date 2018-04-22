@@ -11,13 +11,17 @@ import (
     "log"
 )
 
+type Relationship struct {
+    Username string
+    Action string
+}
+
 type User struct {
     Username string
     Password string
     Articles []*cmd.Article
     token string
-    following []string
-    unfollowing []string
+    Others []Relationship 
 }
 
 func (user *User) Auth() template.HTML {
@@ -56,31 +60,22 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
     logout := r.FormValue("logout")
 
     user := &User{ Username:username , token:token}
-    auth := false
-    if (post != "") {
-        err, reply := ClientPostRPC(token, post, srv)
-        if(err != nil ){
-            http.Redirect(w, r, "/login/", http.StatusFound)
-            return
+    if(token != ""){
+        if (post != "") {
+            err, reply := ClientPostRPC(token, post, srv)
+            if(err != nil || !reply.Ok){
+                http.Redirect(w, r, "/login/", http.StatusFound)
+                return
+            }
         }
-        auth = true
-    }
-    if (logout != "") {
-        err, reply := ClientLogoutRPC(token, srv)
-        if(err == nil && reply.Ok){
-            http.Redirect(w, r, "/login/", http.StatusFound)
-            return
+        if (logout != "") {
+            err, reply := ClientLogoutRPC(token, srv)
+            if(err == nil && reply.Ok){
+                http.Redirect(w, r, "/login/", http.StatusFound)
+                return
+            }
         }
-    }
-    if(auth){
-        args := cmd.GetMyContentArgs{ Token:user.token }
-        var reply cmd.GetMyContentReply
-        err := srv.SrvClient.Call("Service." + "GetMyContent", args, &reply)
-        if(err == nil && reply.Ok){
-            user.Articles = reply.Articles
-        }
-    }
-    if(!auth){
+    }else{
         var clientReply ClientReply
         var err error
         if(choose == "Sign up"){
@@ -105,6 +100,12 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
             http.Redirect(w, r, "/login/?" + loginURLValues.Encode(), http.StatusFound)
             return
         } 
+    }
+    args := cmd.GetMyContentArgs{ Token:user.token }
+    var reply cmd.GetMyContentReply
+    err := srv.SrvClient.Call("Service." + "GetMyContent", args, &reply)
+    if(err == nil && reply.Ok){
+        user.Articles = reply.Articles
     }
 	server.RenderTemplate(w, srv, "home", user)
 }
