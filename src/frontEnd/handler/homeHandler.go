@@ -16,8 +16,8 @@ type User struct {
     Password string
     Articles []*cmd.Article
     token string
-    //following map[string]*User
-    //followers map[string]*User
+    following []string
+    unfollowing []string
 }
 
 func (user *User) Auth() template.HTML {
@@ -38,18 +38,6 @@ type ClientReply struct {
     Error string
 }
 
-type FollowButton struct {
-    Name string
-    Action string
-    User *User
-}
-
-type ProfilePage struct {
-    User *User
-    Auth string
-    FollowList []FollowButton
-}
-
 type LoginPage struct {
     Message string
 }
@@ -63,12 +51,36 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
     username := r.FormValue("name")
     password := r.FormValue("password")
     choose := r.FormValue("choose")
+    token := r.FormValue("Auth")
+    post := r.FormValue("article")
+    logout := r.FormValue("logout")
 
-    userref := User{ Username:username }
-    user := &userref
-    user.token = r.FormValue("Auth")
-
-    if(choose == "Sign up" || choose == "Log in"){
+    user := &User{ Username:username , token:token}
+    auth := false
+    if (post != "") {
+        err, reply := ClientPostRPC(token, post, srv)
+        if(err != nil ){
+            http.Redirect(w, r, "/login/", http.StatusFound)
+            return
+        }
+        auth = true
+    }
+    if (logout != "") {
+        err, reply := ClientLogoutRPC(token, srv)
+        if(err == nil && reply.Ok){
+            http.Redirect(w, r, "/login/", http.StatusFound)
+            return
+        }
+    }
+    if(auth){
+        args := cmd.GetMyContentArgs{ Token:user.token }
+        var reply cmd.GetMyContentReply
+        err := srv.SrvClient.Call("Service." + "GetMyContent", args, &reply)
+        if(err == nil && reply.Ok){
+            user.Articles = reply.Articles
+        }
+    }
+    if(!auth){
         var clientReply ClientReply
         var err error
         if(choose == "Sign up"){
@@ -93,33 +105,6 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
             http.Redirect(w, r, "/login/?" + loginURLValues.Encode(), http.StatusFound)
             return
         } 
-    }else {
-        post := r.FormValue("article")
-        logout := r.FormValue("logout")
-        if (post != "") {
-            args := cmd.PostArgs { Token:user.token, Content:post }
-            var reply cmd.PostReply
-            err := srv.SrvClient.Call("User.Post", args, &reply)
-            if(err != nil ){
-                http.Redirect(w, r, "/login/", http.StatusFound)
-                return
-            }
-        }
-        if (logout != "") {
-            args := cmd.UserLogoutArgs{ Token:user.token }
-            var reply cmd.UserLogoutReply
-            err := srv.SrvClient.Call("Service" + "UserLogout", args, &reply)
-            if(err == nil && reply.Ok){
-                http.Redirect(w, r, "/login/", http.StatusFound)
-            }
-            return
-        }
-        args := cmd.GetMyContentArgs{ Token:user.token }
-        var reply cmd.GetMyContentReply
-        err := srv.SrvClient.Call("Service" + "GetMyContent", args, &reply)
-        if(err == nil && reply.Ok){
-            user.Articles = reply.Articles
-        }
     }
 	server.RenderTemplate(w, srv, "home", user)
 }
