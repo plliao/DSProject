@@ -35,6 +35,7 @@ func clientConnect(srv *server.Server, network string, serverAddress string) err
 
 func main() {
     port := flag.Int("port", 8811, "Serving port")
+    backendServer := flag.String("b", "localhost:80", "backend server ip and port e.g. 127.0.0.1:80")
     pagesDir := flag.String("d", "pages", "Default directory of HTML pages")
     flag.Parse()
 
@@ -54,7 +55,7 @@ func main() {
     srv.Init()
     registerHTMLs(&srv, htmls, *pagesDir)
     createAndRegisterServerHandlers(&srv, apiToServerHandlerFuncMap)
-    serverAddress := "71.125.15.10:80"
+    serverAddress := *backendServer
     err := clientConnect(&srv, "tcp", serverAddress)
     if(err != nil){
         log.Fatal("dialing:", err)
