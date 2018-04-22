@@ -1,27 +1,27 @@
 <html>
     <form action="/home/" method="POST">
-	    {{ .User.Auth }}
+	    {{ .Auth }}
         <input type="submit" value="Home">
     </form>
     <form action="/home/" method="POST">
-        {{ .User.Auth }}
+        {{ .Auth }}
         <input type="submit" name="logout" value="logout">
      </form>
     <body>
-    <h1>{{.User.Username}}'s Profile</h1>
+    <h1>{{.Username}}'s Profile</h1>
     <form>
-        {{ .User.Auth }}
+        {{ .Auth }}
         <input type="submit" name="delete" value="Delete Account">
     </form>
 
     <br>
     <ul>
-    {{range .FollowList}}
+    {{range .Others}}
         <form action="/profile/" method="POST">
-        	{{ .User.Auth }}
-    	    <li>{{.Name}}
+        	{{ $.Auth }}
+    	    <li>{{.Username}}
             <input type="submit" name = "FollowOrNot" value={{.Action}}>
-            <input type="hidden" name = "Target" value={{.Name}}>
+            <input type="hidden" name = "Target" value={{.Username}}>
             </li>
         </form>
         <br>
