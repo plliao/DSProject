@@ -5,6 +5,7 @@
      </form>
     <form action="/profile/" method="POST">
         {{ .Auth }}
+        <input type="hidden" name="name" value={{.Username}}>
         <input type="submit" value="Profile">
      </form>
     <form action="/home/" method="POST">
