@@ -15,27 +15,37 @@ Assignment | Verison
 --- | ---:
 Part 1: Basic web app | 0.1.0 
 Part 2: Separating Front End and Back End | 0.2.0 
+Part 3: Replicated Back End | 
+Part 4: Project Demo | 
 
 ## Usage
 1. Set up GOPATH
 
     `export GOPATH=$YOUR_PATH_TO_DSProject/DSProject`
 
-1. Build web application
+1. Build web applications
 
-    `go build main.go`
+    `go build frontEnd.go`
+    
+    `go build backEnd.go`
 
-1. Serve the application
+1. Serve the applications 
 
-    `./main -port your_port`
+    Serve the backEnd server first.
 
-    See more instrucitons by
+    `./backEnd -port your_port`
+    
+    `./frontEnd -port your_port -b backEndAddress:port`
+
+    See more instructions by
   
-    `./main -h`
+    `./backEnd -h`
+    
+    `./frontEnd -h`
 
 ## API
 * Login and Signup
 
-    The entry of the web application is on here with default port number 8080.
+    The entry of the web application is on here with default port number 8811.
     
-    `http://hostname:8080/login/`
+    `http://frontEnd:port/login/`
