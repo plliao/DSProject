@@ -6,6 +6,8 @@ import (
     "net/rpc"
     "frontEnd/server"
     "frontEnd/handler"
+    "fmt"
+    "log"
 )
 
 func registerHTMLs(srv *server.Server, htmls []string, pagesDir string) {
@@ -24,18 +26,15 @@ func createAndRegisterServerHandlers(
     }
 }
 
-func clientConnect(srv *server.Server, network string, serverAddress string) bool{
+func clientConnect(srv *server.Server, network string, serverAddress string) error{
+    fmt.Print("Dial...\n")
     var err error
     srv.SrvClient, err = rpc.DialHTTP(network, serverAddress)
-    if(err == nil){
-        return true
-    }else{
-        return false
-    }
+    return err
 }
 
 func main() {
-    port := flag.Int("port", 8080, "Serving port")
+    port := flag.Int("port", 8811, "Serving port")
     pagesDir := flag.String("d", "pages", "Default directory of HTML pages")
     flag.Parse()
 
@@ -55,7 +54,12 @@ func main() {
     srv.Init()
     registerHTMLs(&srv, htmls, *pagesDir)
     createAndRegisterServerHandlers(&srv, apiToServerHandlerFuncMap)
-    serverAddress := "..."
-    clientConnect(&srv, "tcp", serverAddress)
-    srv.Start(strconv.Itoa(*port))
+    serverAddress := "71.125.15.10:80"
+    err := clientConnect(&srv, "tcp", serverAddress)
+    if(err != nil){
+        log.Fatal("dialing:", err)
+    }else{
+        fmt.Print("Dial succeed\n")
+        srv.Start(strconv.Itoa(*port))
+    }
 }
