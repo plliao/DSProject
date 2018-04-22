@@ -59,10 +59,14 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
     post := r.FormValue("article")
     logout := r.FormValue("logout")
 
+    client, dialerr := srv.ClientConnect()
+    if(dialerr != nil){
+        log.Fatal("LoginRPC:", dialerr)
+    }
     user := &User{ Username:username , token:token}
     if(user.token != ""){
         if (post != "") {
-            err, reply := ClientPostRPC(user.token, post, srv)
+            err, reply := ClientPostRPC(user.token, post, client)
             if(err != nil ){
                 log.Fatal("PostRPC:", err)
             }
@@ -72,7 +76,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
             }
         }
         if (logout != "") {
-            err, reply := ClientLogoutRPC(user.token, srv)
+            err, reply := ClientLogoutRPC(user.token, client)
             if(err == nil && reply.Ok){
                 http.Redirect(w, r, "/login/", http.StatusFound)
                 return
@@ -85,9 +89,9 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
         var clientReply ClientReply
         var err error
         if(choose == "Sign up"){
-            err, clientReply = ClientRegisterUserRPC(username, password, srv)
+            err, clientReply = ClientRegisterUserRPC(username, password, client)
         } else if(choose == "Log in"){
-            err, clientReply = ClientUserLoginRPC(username, password, srv)
+            err, clientReply = ClientUserLoginRPC(username, password, client)
         }
         if(err == nil && clientReply.Ok){
             user.token = clientReply.Token
@@ -101,7 +105,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
             return
         } 
     }
-    err, reply := ClientGetMyContentRPC(user.token, srv)
+    err, reply := ClientGetMyContentRPC(user.token, client)
     if(err == nil && reply.Ok){
         user.Articles = reply.Articles
     }
