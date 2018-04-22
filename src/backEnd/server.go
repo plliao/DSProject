@@ -193,6 +193,21 @@ func (srv *Server) GetMyContent(token string) (bool, string, []*cmd.Article) {
     return false, srv.messages.UnrecognizedToken, nil
 }
 
+func (srv *Server) GetFollower(token string) (bool, string, []*cmd.Relationship) {
+    ok := srv.validateAuth(token)
+    if ok {
+        relationships := make([]*cmd.Relationship, 0, len(srv.users))
+        follower := srv.tokens[token]
+        for username, _ := range srv.users {
+            if username != follower.Username {
+                _, isFollowing := follower.following[username]
+                relationships = append(relationships, &cmd.Relationship{username, isFollowing})
+            }
+        }
+        return true, srv.messages.NoError, relationships
+    }
+    return false, srv.messages.UnrecognizedToken, nil
+}
 
 func (srv *Server) getFuncAndParameters(cmdValue reflect.Value) (reflect.Value, []reflect.Value) {
     srvValue := reflect.ValueOf(srv)
