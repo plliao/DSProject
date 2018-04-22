@@ -60,40 +60,40 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
     logout := r.FormValue("logout")
 
     user := &User{ Username:username , token:token}
-    if(token != ""){
+    if(user.token != ""){
         if (post != "") {
-            err, reply := ClientPostRPC(token, post, srv)
-            if(err != nil || !reply.Ok){
+            err, reply := ClientPostRPC(user.token, post, srv)
+            if(err != nil ){
+                log.Fatal("PostRPC:", err)
+            }
+            if(!reply.Ok){
                 http.Redirect(w, r, "/login/", http.StatusFound)
                 return
             }
         }
         if (logout != "") {
-            err, reply := ClientLogoutRPC(token, srv)
+            err, reply := ClientLogoutRPC(user.token, srv)
             if(err == nil && reply.Ok){
                 http.Redirect(w, r, "/login/", http.StatusFound)
                 return
+            }
+            if(err != nil){
+                log.Fatal("LoginRPC:", err)
             }
         }
     }else{
         var clientReply ClientReply
         var err error
         if(choose == "Sign up"){
-            args := cmd.RegisterUserArgs{ Username:username, Password:password }
-            var reply cmd.RegisterUserReply
-            err = srv.SrvClient.Call("Service." + "RegisterUser", args, &reply)
-            clientReply = ClientReply{ reply.Ok, reply.Token, reply.Error }
+            err, clientReply = ClientRegisterUserRPC(username, password, srv)
         } else if(choose == "Log in"){
-            args := cmd.UserLoginArgs{ Username:username, Password:password }
-            var reply cmd.UserLoginReply
-            err = srv.SrvClient.Call("Service." + "UserLogin", args, &reply)
-            clientReply = ClientReply{ reply.Ok, reply.Token, reply.Error }
+            err, clientReply = ClientUserLoginRPC(username, password, srv)
         }
         if(err == nil && clientReply.Ok){
             user.token = clientReply.Token
         }else {
             if(err != nil){
-                log.Fatal("dialing:", err)
+                log.Fatal("Signup or Login RPC:", err)
             }
             loginURLValues := url.Values{}
             loginURLValues.Set("message", clientReply.Error)
@@ -101,11 +101,12 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
             return
         } 
     }
-    args := cmd.GetMyContentArgs{ Token:user.token }
-    var reply cmd.GetMyContentReply
-    err := srv.SrvClient.Call("Service." + "GetMyContent", args, &reply)
+    err, reply := ClientGetMyContentRPC(user.token, srv)
     if(err == nil && reply.Ok){
         user.Articles = reply.Articles
+    }
+    if(err != nil){
+        log.Fatal("GetMyContentRPC:", err)
     }
 	server.RenderTemplate(w, srv, "home", user)
 }

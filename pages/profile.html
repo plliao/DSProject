@@ -1,6 +1,7 @@
 <html>
     <form action="/home/" method="POST">
 	    {{ .Auth }}
+        <input type="hidden" name="name" value={{.Username}}>
         <input type="submit" value="Home">
     </form>
     <form action="/home/" method="POST">
@@ -19,6 +20,7 @@
     {{range .Others}}
         <form action="/profile/" method="POST">
         	{{ $.Auth }}
+            <input type="hidden" name="name" value={{$.Username}}>
     	    <li>{{.Username}}
             <input type="submit" name = "FollowOrNot" value={{.Action}}>
             <input type="hidden" name = "Target" value={{.Username}}>
