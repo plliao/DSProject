@@ -11,6 +11,7 @@ import (
     "fmt"
     "reflect"
     "backEnd/cmd"
+    "sync"
 )
 
 type Command interface {
@@ -22,6 +23,7 @@ type Server struct {
     tokens map[string]*User
     commands chan reflect.Value
 
+    rwLock *sync.RWMutex
     service *Service
     messages BackEndMessages
 
@@ -34,6 +36,7 @@ func (srv *Server) Init() {
     srv.tokens = make(map[string]*User)
     srv.commands = make(chan reflect.Value, 100)
 
+    srv.rwLock = &sync.RWMutex{}
     srv.service = &Service{srv.commands}
     srv.messages = BackEndMessages{
         NoError:"",
@@ -225,12 +228,28 @@ func (srv *Server) getFuncAndParameters(cmdValue reflect.Value) (reflect.Value, 
     return f, parameters
 }
 
+func (srv *Server) isReadOnly(cmdValue reflect.Value) bool {
+    switch (cmdValue.Type().Name()) {
+        case "GetMyFollower", "GetMyContent":
+            return true
+        default:
+            return false
+    }
+}
+
 func (srv *Server) exec(cmdValue reflect.Value) {
     f, parameters := srv.getFuncAndParameters(cmdValue)
     replyType := cmdValue.Field(1).Type().Elem().Elem()
     reply := reflect.New(replyType)
 
     if f.IsValid() {
+        if srv.isReadOnly(cmdValue) {
+            srv.rwLock.RLock()
+            defer srv.rwLock.RUnlock()
+        } else {
+            srv.rwLock.Lock()
+            defer srv.rwLock.Unlock();
+        }
         results := f.Call(parameters)
         for index, value := range results {
             reply.Elem().Field(index).Set(value)
@@ -246,7 +265,7 @@ func (srv *Server) exec(cmdValue reflect.Value) {
 
 func (srv *Server) runCommands() {
     for cmd := range srv.commands {
-        srv.exec(cmd)
+        go srv.exec(cmd)
     }
 }
 
