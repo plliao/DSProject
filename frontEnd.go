@@ -30,7 +30,7 @@ func createBackEndAddress(srv *server.Server, network string, serverAddress stri
 
 func main() {
     port := flag.Int("port", 8080, "Serving port")
-    backendServer := flag.String("b", "71.125.15.10:80", "71.125.15.10:80")
+    backendServer := flag.String("b", "71.125.15.10:80",  "backend server ip and port e.g. 127.0.0.1:80")
     pagesDir := flag.String("d", "pages", "Default directory of HTML pages")
     flag.Parse()
 
