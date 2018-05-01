@@ -41,9 +41,9 @@ func (srv *Server) RegisterHandlerFunc(api string, handler http.HandlerFunc) {
 }
 
 func (srv *Server) Start(port string) {
-    fmt.Print("FrontEnd server Start...\n")
     srv.createTemplates()
     Route(srv)
+    fmt.Print("FrontEnd server Start...\n")
     log.Fatal(http.ListenAndServe(":" + port, nil))
 }
 
@@ -55,18 +55,13 @@ func (srv *Server) createTemplates() {
     srv.templates = CreateTemplates(filepaths...)
 }
 
-func (srv *Server) GetAPI() []string {
+func (srv *Server) GetAPIAndHandlers() ([]string, []http.HandlerFunc) {
     apis := make([]string, 0, len(srv.handlers))
-    for api, _ := range srv.handlers {
-        apis = append(apis, api)
-    }
-    return apis
-}
-
-func (srv *Server) GetHandlers() []http.HandlerFunc {
     handlers := make([]http.HandlerFunc, 0, len(srv.handlers))
-    for _, handler := range srv.handlers {
+    for api, handler := range srv.handlers {
+        apis = append(apis, api)
         handlers = append(handlers, handler)
     }
-    return handlers
+    return apis, handlers
 }
+

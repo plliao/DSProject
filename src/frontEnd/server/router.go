@@ -45,13 +45,12 @@ func (validator URLValidator) Decorate(handlerFunc http.HandlerFunc) http.Handle
 func Route(srv *Server) {
     var manager MiddlewareManager
 
-    apis := srv.GetAPI()
+    apis, handlers := srv.GetAPIAndHandlers()
     validator := URLValidator{
         validPath:regexp.MustCompile("^/" + strings.Join(apis, "|") + "/"),
     }
     manager.RegisterMiddleware(validator)
 
-    handlers := srv.GetHandlers()
     for index, handler := range handlers {
         decoratedHandler := manager.Decorate(handler)
         http.HandleFunc("/" + apis[index] + "/", decoratedHandler)
