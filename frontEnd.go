@@ -43,7 +43,7 @@ func main() {
     apiToServerHandlerFuncMap := map[string]server.ServerHandlerFunc{
         "login":handler.LoginHandler,
         "home":handler.HomeHandler,
-        "profile": handler.ProfileHandler,
+        "profile":handler.ProfileHandler,
     }
 
     var srv server.Server
