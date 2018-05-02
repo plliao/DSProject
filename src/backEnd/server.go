@@ -14,10 +14,6 @@ import (
     "sync"
 )
 
-type Command interface {
-
-}
-
 type Server struct {
     users map[string]*User
     tokens map[string]*User
@@ -29,6 +25,11 @@ type Server struct {
 
     validUserName *regexp.Regexp
     validPassword *regexp.Regexp
+
+    addressBook []string
+    raft Raft
+    commitChan chan int
+    nextIndexs []int
 }
 
 func (srv *Server) Init() {
@@ -51,6 +52,28 @@ func (srv *Server) Init() {
 
     srv.validUserName, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
     srv.validPassword, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
+
+    raft = Raft{
+        term:0,
+        index:0,
+        commitIndex:-1
+    }
+    addressBook = make([]string, 0)
+}
+
+func (srv *Server) RegisterAddress(address string, port string) {
+    addressBook = append(addressBook, address + ":" + port)
+    nextIndexs = append(nextIndexs, 0)
+}
+
+func (srv *Server) masterInit() {
+    nextIndexs = make([]int, len(addressBook))
+    commitChan = make(chan int, 100)
+}
+
+func (srv *Server) masterShutDown() {
+    nextIndexs = nil
+    close(commitChan)
 }
 
 func (srv *Server) validateUserNameAndPassFormat(username string, password string) (bool, error) {
@@ -261,6 +284,34 @@ func (srv *Server) exec(cmdValue reflect.Value) {
 
     fmt.Printf("Command: %v, reply: %v\n", cmdValue.Type().Name(), reply)
     cmdValue.Field(1).Send(reply)
+}
+
+func (srv *Server) commitHandler() {
+    indexCount := make([int]int)
+    for index := range(srv.commitChan) {
+        if srv.raft.commitIndex > index {
+            continue
+        }
+
+        if _, ok := indexCount[index]; !ok {
+            indexCount[index] = 1
+        }
+        indexCount[index] = indexCount[index] + 1
+
+        if indexCount[index] > srv.getMajority() {
+            for commitIndex = srv.raft.commitIndex + 1; commitIndex <= index; commitIndex++ {
+                delete(indexCount, commitIndex)
+                srv.exec(srv.raft.logs[commitIndex])
+                srv.raft.commitIndex = commitIndex
+            }
+        }
+    }
+}
+
+func (srv *Server) slaveHandler(index int) {
+    client := RaftClient{srv.addressBook[index]}
+    client.Init()
+
 }
 
 func (srv *Server) runCommands() {
