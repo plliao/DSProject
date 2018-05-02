@@ -19,6 +19,18 @@ func (client *RaftClient) Init() {
     client.rpcClient = rpcClient
 }
 
-func (client *RaftClient) AppendEntry(term int, index int, commit int, command reflect.Value) {
-
+func (client *RaftClient) AppendEntry(
+        term int, leaderId int, prevLogIndex int, prevLogTerm int,
+        command reflect.Value, commit int) AppendEntryReply {
+    args := AppendEntryArgs{
+        term:term,
+        leaderId:leaderId,
+        prevLogIndex:prevLogIndex,
+        prevLogTerm:prevLogTerm,
+        command:command,
+        commit:commit,
+    }
+    reply = AppendEntryReply{}
+    client.call("Raft.AppendEntry", args, &reply)
+    return reply
 }
