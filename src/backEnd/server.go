@@ -36,7 +36,7 @@ type Server struct {
     timeout time.Duration
 }
 
-func (srv *Server) Init() {
+func (srv *Server) Init(id int) {
     srv.users = make(map[string]*User)
     srv.tokens = make(map[string]*User)
     srv.commands = make(chan reflect.Value, 100)
@@ -65,6 +65,7 @@ func (srv *Server) Init() {
     }
     srv.network = "tcp"
     srv.addressBook = make([]string, 0)
+    srv.timeout = 100 * time.Millisecond
 }
 
 func (srv *Server) RegisterAddress(address string, port string) {
@@ -377,6 +378,7 @@ func (srv *Server) Start(port string) {
     go srv.runCommands()
 
     rpc.Register(srv.service)
+    rpc.Register(srv.raft)
     rpc.HandleHTTP()
     l, e := net.Listen("tcp", ":" + port)
     if e != nil {
