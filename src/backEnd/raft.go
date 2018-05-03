@@ -29,3 +29,25 @@ type AppendEntryReply struct {
     term int
     success bool
 }
+
+type RequestVoteArgs struct {
+    term int
+    candidateId int
+    lastLogIndex int
+    lastLogTerm int
+}
+
+type RequestVoteReply struct {
+    term int
+    voteGranted bool
+}
+
+func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) error {
+    //TODO
+    return nil
+}
+
+func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) error {
+    //TODO
+    return nil
+}
