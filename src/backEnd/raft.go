@@ -44,20 +44,32 @@ type RequestVoteReply struct {
 
 func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) error {
     //TODO
-    reply.success = false
     if args.term < raft.term || raft.logTerms[prevLogIndex] != prevLogTerm{
-        return 
+        reply.success = false 
     }
     if len(raft.logs)-1 == args.prevLogIndex{
         raft.logs = append(raft.logs, command)
+    }else if len(raft.logs)-1 == args.prevLogIndex+1{
+        raft.logs[prevLogIndex+1] = command
     }
     if commitIndex > raft.commitIndex {
         raft.commitIndex = min(commitIndex, len(logs)-1)
     }
+    reply.success = true
+    reply.term = raft.term
     return nil
 }
 
 func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) error {
     //TODO
+    if args.term < raft.term {
+        reply.voteGranted = false 
+    }else if ((raft.voteFor < 0 || raft.voteFor == args.candidateId) 
+        && len(raft.logs)-1 <= args.lastLogIndex 
+        && raft.logTerms[len(raft.logTerms)-1] <= args.lastLogTerm){
+        reply.voteGranted = true
+        reply.term = raft.term
+        raft.voteFor = args.candidateId
+    }
     return nil
 }
