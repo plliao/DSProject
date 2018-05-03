@@ -12,6 +12,7 @@ import (
     "reflect"
     "backEnd/cmd"
     "sync"
+    "time"
 )
 
 type Server struct {
@@ -26,10 +27,13 @@ type Server struct {
     validUserName *regexp.Regexp
     validPassword *regexp.Regexp
 
+    network string
     addressBook []string
     raft Raft
     commitChan chan int
     nextIndexs []int
+    id int
+    timeout time.Duration
 }
 
 func (srv *Server) Init() {
@@ -53,27 +57,39 @@ func (srv *Server) Init() {
     srv.validUserName, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
     srv.validPassword, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
 
-    raft = Raft{
+    srv.raft = Raft{
+        isLeader:false,
         term:0,
         index:0,
-        commitIndex:-1
+        commitIndex:-1,
     }
-    addressBook = make([]string, 0)
+    srv.network = "tcp"
+    srv.addressBook = make([]string, 0)
 }
 
 func (srv *Server) RegisterAddress(address string, port string) {
-    addressBook = append(addressBook, address + ":" + port)
-    nextIndexs = append(nextIndexs, 0)
+    srv.addressBook = append(srv.addressBook, address + ":" + port)
+    srv.nextIndexs = append(srv.nextIndexs, 0)
 }
 
-func (srv *Server) masterInit() {
-    nextIndexs = make([]int, len(addressBook))
-    commitChan = make(chan int, 100)
+func (srv *Server) leaderInit() {
+    srv.nextIndexs = make([]int, len(srv.addressBook))
+    srv.commitChan = make(chan int, 100)
+    go srv.commitHandler()
+    for i:=0; i<len(srv.addressBook); i++ {
+        if i != srv.id {
+            go srv.followerHandler(i)
+        }
+    }
 }
 
-func (srv *Server) masterShutDown() {
-    nextIndexs = nil
-    close(commitChan)
+func (srv *Server) leaderShutDown() {
+    srv.nextIndexs = nil
+    close(srv.commitChan)
+}
+
+func (srv *Server) getMajority() int {
+    return len(srv.addressBook) / 2
 }
 
 func (srv *Server) validateUserNameAndPassFormat(username string, password string) (bool, error) {
@@ -287,7 +303,7 @@ func (srv *Server) exec(cmdValue reflect.Value) {
 }
 
 func (srv *Server) commitHandler() {
-    indexCount := make([int]int)
+    indexCount := make(map[int]int)
     for index := range(srv.commitChan) {
         if srv.raft.commitIndex > index {
             continue
@@ -299,7 +315,7 @@ func (srv *Server) commitHandler() {
         indexCount[index] = indexCount[index] + 1
 
         if indexCount[index] > srv.getMajority() {
-            for commitIndex = srv.raft.commitIndex + 1; commitIndex <= index; commitIndex++ {
+            for commitIndex := srv.raft.commitIndex + 1; commitIndex <= index; commitIndex++ {
                 delete(indexCount, commitIndex)
                 srv.exec(srv.raft.logs[commitIndex])
                 srv.raft.commitIndex = commitIndex
@@ -308,10 +324,47 @@ func (srv *Server) commitHandler() {
     }
 }
 
-func (srv *Server) slaveHandler(index int) {
-    client := RaftClient{srv.addressBook[index]}
-    client.Init()
+func (srv *Server) followerHandler(index int) {
+    client := RaftClient{address:srv.addressBook[index]}
+    client.Init(srv.network, srv.addressBook[index])
+    for {
+        if !srv.raft.isLeader {
+            break
+        }
+        nextIndex := srv.nextIndexs[index]
+        var command reflect.Value
 
+        if srv.raft.index < nextIndex {
+            command = reflect.ValueOf(nil)
+            nextIndex = srv.raft.index + 1
+            time.Sleep(srv.timeout)
+        } else {
+            command = srv.raft.logs[nextIndex]
+        }
+
+        reply, err := client.AppendEntry(
+            srv.raft.term,
+            srv.id,
+            nextIndex - 1,
+            srv.raft.logTerms[nextIndex - 1],
+            command,
+            srv.raft.commitIndex,
+        )
+
+        if err != nil {
+            fmt.Print(err)
+            client.Init(srv.network, srv.addressBook[index])
+            continue
+        }
+        if command.IsValid() {
+            if reply.success {
+                srv.commitChan <- nextIndex
+                srv.nextIndexs[index]++
+            } else {
+                srv.nextIndexs[index]--
+            }
+        }
+    }
 }
 
 func (srv *Server) runCommands() {
