@@ -44,6 +44,16 @@ type RequestVoteReply struct {
 
 func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) error {
     //TODO
+    reply.success = false
+    if args.term < raft.term || raft.logTerms[prevLogIndex] != prevLogTerm{
+        return 
+    }
+    if len(raft.logs)-1 == args.prevLogIndex{
+        raft.logs = append(raft.logs, command)
+    }
+    if commitIndex > raft.commitIndex {
+        raft.commitIndex = min(commitIndex, len(logs)-1)
+    }
     return nil
 }
 
