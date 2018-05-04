@@ -346,8 +346,9 @@ func (srv *Server) updateLastBeat(){
     }
 }
 
-func (srv *Server) startVote(){
+func (srv *Server) startVote()bool{
     count := 0
+    srv.raft.term = srv.raft.term + 1
     for index in range(srv.addressBook){
         client := RaftClient{address:srv.addressBook[index]}
         reply, err := client.RequestVote(
@@ -359,20 +360,32 @@ func (srv *Server) startVote(){
             count++
         }
         if count > srv.getMajority(){
-            //become leader
+            return true
         }
     }
+    return false
+}
+
+func (srv *Server) becomeLeader(){
+    
 }
 
 func (srv *Server) heartBeatHandler(){
     for{
         time.Sleep(timeout)
         if(time.Now().Sub(srv.lastBeatTime) > timeout){
-            voteResult := <- srv.startVote()
-            <-voteResult
+            electionTimer := rand.Float64() * timeout 
+            select {
+            case voteRes := <-startVote:
+                fmt.Println(voteRes)
+                if voteRes{
+                    srv.becomeLeader()
+                }
+            case <-time.After(electionTimer):
+                fmt.Println("election timeout")
+            }
         }
     }
-
 }
 
 func (srv *Server) execHandler(){
