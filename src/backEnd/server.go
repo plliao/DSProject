@@ -367,7 +367,7 @@ func (srv *Server) startVote()bool{
 }
 
 func (srv *Server) becomeLeader(){
-    
+    //TODO
 }
 
 func (srv *Server) heartBeatHandler(){
