@@ -40,6 +40,7 @@ type Server struct {
 
     toExecChan chan int
     heartBeatChan chan bool
+    lastBeatTime Time
 }
 
 func (srv *Server) Init(id int) {
@@ -339,8 +340,24 @@ func (srv *Server) commitHandler() {
     }
 }
 
-func (srv *Server) heartBeatHandler(){
+func (srv *Server) updateLastBeat(){
+    for{
+        srv.lastBeatTime<-heartBeatChan
+    }
+}
 
+func (srv *Server) startVote(){
+    
+}
+
+func (srv *Server) heartBeatHandler(){
+    for{
+        time.Sleep(timeout)
+        if(time.Now().Sub(srv.lastBeatTime) > timeout){
+            voteResult := <- srv.startVote()
+            <-voteResult
+        }
+    }
 
 }
 
