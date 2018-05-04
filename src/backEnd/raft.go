@@ -14,6 +14,9 @@ type Raft struct {
 
     logs []string
     logTerms []int
+
+    srvHeartBeat *chan bool
+    srvExec *chan int
 }
 
 type AppendEntryArgs struct {
