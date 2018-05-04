@@ -13,6 +13,8 @@ import (
     "backEnd/cmd"
     "sync"
     "time"
+    "strings"
+    "encoding/json"
 )
 
 type Server struct {
@@ -57,10 +59,11 @@ func (srv *Server) Init(id int) {
     srv.validUserName, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
     srv.validPassword, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
 
+    srv.id = id
     srv.raft = Raft{
         isLeader:false,
         term:0,
-        index:0,
+        index:-1,
         commitIndex:-1,
     }
     srv.network = "tcp"
@@ -318,6 +321,7 @@ func (srv *Server) commitHandler() {
         if indexCount[index] > srv.getMajority() {
             for commitIndex := srv.raft.commitIndex + 1; commitIndex <= index; commitIndex++ {
                 delete(indexCount, commitIndex)
+                var cmd
                 srv.exec(srv.raft.logs[commitIndex])
                 srv.raft.commitIndex = commitIndex
             }
@@ -326,28 +330,36 @@ func (srv *Server) commitHandler() {
 }
 
 func (srv *Server) followerHandler(index int) {
+    fmt.Print("Start to Connect with " + srv.addressBook[index] + "\n")
     client := RaftClient{address:srv.addressBook[index]}
     client.Init(srv.network, srv.addressBook[index])
+    fmt.Print("Successfully Connect with " + srv.addressBook[index] + "\n")
     for {
         if !srv.raft.isLeader {
             break
         }
         nextIndex := srv.nextIndexs[index]
-        var command reflect.Value
+        var command string
 
         if srv.raft.index < nextIndex {
-            command = reflect.ValueOf(nil)
+            command = ""
             nextIndex = srv.raft.index + 1
             time.Sleep(srv.timeout)
         } else {
             command = srv.raft.logs[nextIndex]
         }
 
+        preLogIndex := nextIndex - 1
+        preLogTerm := -1
+        if preLogIndex > 0 {
+            preLogTerm = srv.raft.logTerms[preLogIndex]
+        }
+
         reply, err := client.AppendEntry(
             srv.raft.term,
             srv.id,
-            nextIndex - 1,
-            srv.raft.logTerms[nextIndex - 1],
+            preLogIndex,
+            preLogTerm,
             command,
             srv.raft.commitIndex,
         )
@@ -357,8 +369,8 @@ func (srv *Server) followerHandler(index int) {
             client.Init(srv.network, srv.addressBook[index])
             continue
         }
-        if command.IsValid() {
-            if reply.success {
+        if command != "" {
+            if reply.Success {
                 srv.commitChan <- nextIndex
                 srv.nextIndexs[index]++
             } else {
@@ -370,12 +382,21 @@ func (srv *Server) followerHandler(index int) {
 
 func (srv *Server) runCommands() {
     for cmd := range srv.commands {
-        go srv.exec(cmd)
+        encodedCmd, err := json.Marshal(cmd)
+        if err != nil {
+            fmt.Println(err)
+            continue
+        }
+        srv.raft.logs = append(srv.raft.logs, string(encodedCmd))
+        srv.raft.index = len(srv.raft.logs) - 1
     }
 }
 
-func (srv *Server) Start(port string) {
+func (srv *Server) Start() {
     go srv.runCommands()
+
+    address := srv.addressBook[srv.id]
+    port := strings.Split(address, ":")[1]
 
     rpc.Register(srv.service)
     rpc.Register(srv.raft)
@@ -383,6 +404,11 @@ func (srv *Server) Start(port string) {
     l, e := net.Listen("tcp", ":" + port)
     if e != nil {
         log.Fatal("listen error:", e)
+    }
+    fmt.Print("BackEnd serving on " + address + "\n")
+    if srv.id == 0 {
+        srv.raft.isLeader = true
+        srv.leaderInit()
     }
     http.Serve(l, nil)
 }
