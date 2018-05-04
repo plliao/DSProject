@@ -2,8 +2,8 @@ package backEnd
 
 import(
     "net/rpc"
-    "reflect"
     "time"
+    "fmt"
 )
 
 type RaftClient struct{
@@ -12,9 +12,11 @@ type RaftClient struct{
 }
 
 func (client *RaftClient) Init(network string, address string) {
+    fmt.Print("Start to Connect with " + address + "\n")
     rpcClient, err := rpc.DialHTTP(network, address)
     for ; err != nil; {
-        time.Sleep(1000)
+        time.Sleep(1000 * time.Millisecond)
+        fmt.Print("Attempt to Connect with " + address + "\n")
         rpcClient, err = rpc.DialHTTP(network, address)
     }
     client.rpcClient = rpcClient
@@ -22,14 +24,14 @@ func (client *RaftClient) Init(network string, address string) {
 
 func (client *RaftClient) AppendEntry(
         term int, leaderId int, prevLogIndex int, prevLogTerm int,
-        command reflect.Value, commitIndex int) (AppendEntryReply, error) {
+        command string, commitIndex int) (AppendEntryReply, error) {
     args := AppendEntryArgs{
-        term:term,
-        leaderId:leaderId,
-        prevLogIndex:prevLogIndex,
-        prevLogTerm:prevLogTerm,
-        command:command,
-        commitIndex:commitIndex,
+        Term:term,
+        LeaderId:leaderId,
+        PrevLogIndex:prevLogIndex,
+        PrevLogTerm:prevLogTerm,
+        Command:command,
+        CommitIndex:commitIndex,
     }
     reply := AppendEntryReply{}
     err := client.rpcClient.Call("Raft.AppendEntry", args, &reply)
