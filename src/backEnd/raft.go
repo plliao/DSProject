@@ -47,15 +47,8 @@ type RequestVoteReply struct {
 
 func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) error {
     raft.heartBeatChan <- true
-
     reply.Term = raft.term
-    if args.Command == "" {
-        fmt.Print("Receive heartbeat\n")
-        reply.Success = false
-        return nil
-    }
 
-    fmt.Print("Receive command " + args.Command + "\n")
     if args.Term < raft.term || args.PrevLogIndex >= len(raft.logs) ||
             args.PrevLogIndex > 0 && raft.logTerms[args.PrevLogIndex] != args.PrevLogTerm {
         reply.Success = false
@@ -63,9 +56,11 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
     }
 
     if len(raft.logs) - 1 == args.PrevLogIndex{
-        fmt.Print("Append command " + args.Command + "\n")
-        raft.logs = append(raft.logs, args.Command)
-        raft.logTerms = append(raft.logTerms, args.Term)
+        if args.Command != "" {
+            fmt.Print("Append command " + args.Command + "\n")
+            raft.logs = append(raft.logs, args.Command)
+            raft.logTerms = append(raft.logTerms, args.Term)
+        }
     } else if len(raft.logs) > args.PrevLogIndex + 1 {
         if raft.logs[args.PrevLogIndex + 1] != args.Command {
             raft.logs = raft.logs[:args.PrevLogIndex]
@@ -81,7 +76,6 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
             newCommitIndex = len(raft.logs) - 1
         }
         for i:= raft.commitIndex + 1; i<= newCommitIndex; i++{
-            fmt.Printf("Queue command index %d \n", i)
             raft.toExecChan <- i
         }
         raft.commitIndex = newCommitIndex
