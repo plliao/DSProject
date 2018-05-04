@@ -82,13 +82,13 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
         }
         raft.commitIndex = newCommitIndex
     }
-
+    raft.voteFor = -1
     reply.Success = true
     return nil
 }
 
 func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) error {
-    /*if args.Term < raft.term {
+    if args.Term < raft.term {
         reply.VoteGranted = false
     } else if ((raft.voteFor < 0 || raft.voteFor == args.CandidateId) &&
             len(raft.logs)-1 <= args.LastLogIndex &&
@@ -96,6 +96,6 @@ func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) err
         reply.VoteGranted = true
         reply.Term = raft.term
         raft.voteFor = args.CandidateId
-    }*/
+    }
     return nil
 }
