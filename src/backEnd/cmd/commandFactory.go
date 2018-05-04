@@ -39,14 +39,14 @@ func (factory *CommandFactory) Encode(value reflect.Value) string {
 
 func (factory *CommandFactory) Decode(encoded string) (string, []reflect.Value) {
     command := Command{}
-    json.Unmarshal([]byte(encoded), command)
+    json.Unmarshal([]byte(encoded), &command)
 
     cmdArgsType := factory.commandMap[command.Name]
     cmdArgs := reflect.New(cmdArgsType)
-    json.Unmarshal([]byte(command.Args), cmdArgs)
+    json.Unmarshal([]byte(command.Args), cmdArgs.Interface())
     parameters := make([]reflect.Value, 0)
-    for i:=0; i<cmdArgs.NumField(); i++ {
-        parameters = append(parameters, cmdArgs.Field(i))
+    for i:=0; i<cmdArgs.Elem().NumField(); i++ {
+        parameters = append(parameters, cmdArgs.Elem().Field(i))
     }
     return command.Name, parameters
 }
