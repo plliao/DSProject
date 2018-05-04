@@ -353,8 +353,9 @@ func (srv *Server) commitHandler() {
 }
 
 func (srv *Server) heartBeatHandler() {
+    for _ = range srv.heartBeatChan {
 
-
+    }
 }
 
 func (srv *Server) execHandler() {
