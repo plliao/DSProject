@@ -6,30 +6,45 @@ import (
     "log"
     "net/rpc"
     "fmt"
+    "bufio"
+    "os"
 )
 
 type Server struct {
     htmls map[string]string // name -> filepath
     handlers map[string]http.HandlerFunc // api -> handler
     templates *template.Template
-    serverAddress string
+    serverAddress []string
     network string
 }
 
 func (srv *Server)ClientConnect() (*rpc.Client, error){
-    client, err := rpc.DialHTTP(srv.network, srv.serverAddress)
+    var err error
+    var client *rpc.Client
+    for i := 0; i< len(srv.serverAddress); i++{
+        client, err := rpc.DialHTTP(srv.network, srv.serverAddress[i])
+        if(err == nil){
+            return client, err
+        }
+    }
     return client, err
 }
 
-func (srv *Server) InitialDial(network string, serverAddress string){
-    srv.serverAddress = serverAddress
-    srv.network = network
+func (srv *Server) InitialDial(filePath string){
+    file, err := os.Open(filePath)
+    if err != nil {
+        return
+    }
+    defer file.Close()
+    scanner := bufio.NewScanner(file)
+    for scanner.Scan() {
+        srv.serverAddress = append(srv.serverAddress, scanner.Text())
+    }
 }
 
 func (srv *Server) Init() {
     srv.htmls = make(map[string]string)
     srv.handlers = make(map[string]http.HandlerFunc)
-    //srv.client = make(rpc.Client)
 }
 
 func (srv *Server) RegisterHTML(name string, path string) {
