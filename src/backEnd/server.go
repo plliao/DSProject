@@ -37,6 +37,9 @@ type Server struct {
     nextIndexs []int
     id int
     timeout time.Duration
+
+    toExecChan chan int
+    heartBeatChan chan bool
 }
 
 func (srv *Server) Init(id int) {
@@ -45,6 +48,9 @@ func (srv *Server) Init(id int) {
     srv.commands = make(chan reflect.Value, 100)
     srv.cmdFactory = &cmd.CommandFactory{}
     srv.cmdFactory.Init()
+
+    srv.toExecChan = make(chan int, 100)
+    srv.heartBeatChan = make(chan bool, 10000)
 
     srv.rwLock = &sync.RWMutex{}
     srv.service = &Service{srv.commands}
@@ -330,6 +336,18 @@ func (srv *Server) commitHandler() {
                 srv.raft.commitIndex = commitIndex
             }
         }
+    }
+}
+
+func (srv *Server) heartBeatHandler(){
+
+
+}
+
+func (srv *Server) execHandler(){
+    for{
+        execID := <- srv.toExecChan
+        
     }
 }
 
