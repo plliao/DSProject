@@ -49,9 +49,6 @@ func (srv *Server) Init(id int) {
     srv.cmdFactory = &cmd.CommandFactory{}
     srv.cmdFactory.Init()
 
-    srv.toExecChan = make(chan int, 100)
-    srv.heartBeatChan = make(chan bool, 10000)
-
     srv.rwLock = &sync.RWMutex{}
     srv.service = &Service{srv.commands}
     srv.messages = BackEndMessages{
@@ -77,7 +74,7 @@ func (srv *Server) Init(id int) {
     }
     srv.network = "tcp"
     srv.addressBook = make([]string, 0)
-    srv.timeout = 100 * time.Millisecond
+    srv.timeout = 1000 * time.Millisecond
 }
 
 func (srv *Server) RegisterAddress(address string, port string) {
@@ -101,6 +98,22 @@ func (srv *Server) leaderShutDown() {
     srv.nextIndexs = nil
     srv.commandLogs = nil
     close(srv.commitChan)
+}
+
+func (srv *Server) followerInit() {
+    srv.toExecChan = make(chan int, 100)
+    srv.heartBeatChan = make(chan bool, 100)
+    srv.raft.toExecChan = srv.toExecChan
+    srv.raft.heartBeatChan = srv.heartBeatChan
+    go srv.execHandler()
+    go srv.heartBeatHandler()
+}
+
+func (srv *Server) followerShutDown() {
+    srv.raft.toExecChan = nil
+    srv.raft.heartBeatChan = nil
+    close(srv.toExecChan)
+    close(srv.heartBeatChan)
 }
 
 func (srv *Server) getMajority() int {
@@ -339,15 +352,20 @@ func (srv *Server) commitHandler() {
     }
 }
 
-func (srv *Server) heartBeatHandler(){
+func (srv *Server) heartBeatHandler() {
 
 
 }
 
-func (srv *Server) execHandler(){
-    for{
-        execID := <- srv.toExecChan
-        
+func (srv *Server) execHandler() {
+    srvValue := reflect.ValueOf(srv)
+    for execID :=  range srv.toExecChan {
+        fmt.Printf("+%v\n", srv.raft.logs)
+        encodedCmd := srv.raft.logs[execID]
+        funcName, parameters := srv.cmdFactory.Decode(encodedCmd)
+        f := srvValue.MethodByName(funcName)
+        f.Call(parameters)
+        fmt.Print("Replicate execute command " + funcName + "\n")
     }
 }
 
@@ -405,6 +423,7 @@ func (srv *Server) followerHandler(index int) {
 func (srv *Server) runCommands() {
     for cmd := range srv.commands {
         encodedCmd := srv.cmdFactory.Encode(cmd)
+        fmt.Print("Receive command " + encodedCmd + "\n")
         srv.commandLogs = append(srv.commandLogs, cmd)
         srv.raft.logs = append(srv.raft.logs, encodedCmd)
         srv.raft.logTerms = append(srv.raft.logTerms, srv.raft.term)
@@ -429,6 +448,8 @@ func (srv *Server) Start() {
     if srv.id == 0 {
         srv.raft.isLeader = true
         srv.leaderInit()
+    } else {
+        srv.followerInit()
     }
     http.Serve(l, nil)
 }
