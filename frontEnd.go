@@ -23,14 +23,14 @@ func createAndRegisterServerHandlers(
     }
 }
 
-func createBackEndAddress(srv *server.Server, network string, serverAddress string) {
-    srv.InitialDial(network, serverAddress)
-    return
-}
+//func createBackEndAddress(srv *server.Server, network string, serverAddress string) {
+//    srv.InitialDial(network, serverAddress)
+//    return
+//}
 
 func main() {
-    port := flag.Int("port", 8080, "Serving port")
-    backendServer := flag.String("b", "71.125.15.10:80", "backend server ip and port e.g. 127.0.0.1:80")
+    httpPort := flag.Int("port", 8080, "Serving port")
+    //backendServer := flag.String("b", "71.125.15.10:80", "backend server ip and port e.g. 127.0.0.1:80")
     pagesDir := flag.String("d", "pages", "Default directory of HTML pages")
     flag.Parse()
 
@@ -47,10 +47,11 @@ func main() {
     }
 
     var srv server.Server
+    srv.InitialDial("config.txt")
     srv.Init()
     registerHTMLs(&srv, htmls, *pagesDir)
     createAndRegisterServerHandlers(&srv, apiToServerHandlerFuncMap)
-    serverAddress := *backendServer
-    createBackEndAddress(&srv, "tcp", serverAddress)
-    srv.Start(strconv.Itoa(*port))
+    //serverAddress := *backendServer
+    //createBackEndAddress(&srv, "tcp", serverAddress)
+    srv.Start(strconv.Itoa(*httpPort))
 }
