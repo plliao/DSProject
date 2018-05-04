@@ -360,7 +360,6 @@ func (srv *Server) heartBeatHandler() {
 func (srv *Server) execHandler() {
     srvValue := reflect.ValueOf(srv)
     for execID :=  range srv.toExecChan {
-        fmt.Printf("+%v\n", srv.raft.logs)
         encodedCmd := srv.raft.logs[execID]
         funcName, parameters := srv.cmdFactory.Decode(encodedCmd)
         f := srvValue.MethodByName(funcName)
@@ -422,12 +421,15 @@ func (srv *Server) followerHandler(index int) {
 
 func (srv *Server) runCommands() {
     for cmd := range srv.commands {
-        encodedCmd := srv.cmdFactory.Encode(cmd)
-        fmt.Print("Receive command " + encodedCmd + "\n")
-        srv.commandLogs = append(srv.commandLogs, cmd)
-        srv.raft.logs = append(srv.raft.logs, encodedCmd)
-        srv.raft.logTerms = append(srv.raft.logTerms, srv.raft.term)
-        srv.raft.index = len(srv.raft.logs) - 1
+        if srv.isReadOnly(cmd) {
+            go srv.exec(cmd)
+        } else {
+            encodedCmd := srv.cmdFactory.Encode(cmd)
+            srv.commandLogs = append(srv.commandLogs, cmd)
+            srv.raft.logs = append(srv.raft.logs, encodedCmd)
+            srv.raft.logTerms = append(srv.raft.logTerms, srv.raft.term)
+            srv.raft.index = len(srv.raft.logs) - 1
+        }
     }
 }
 
