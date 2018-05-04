@@ -46,6 +46,7 @@ type RequestVoteReply struct {
 }
 
 func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) error {
+    srvHeartBeat<-true
     fmt.Print("Receive AppendEntry\n")
     if args.Term < raft.term || raft.logTerms[args.PrevLogIndex] != args.PrevLogTerm{
         reply.Success = false
@@ -59,7 +60,7 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
     }
     if args.CommitIndex > raft.commitIndex {
         for i:= raft.commitIndex; i<= args.CommitIndex; i++{
-            //exec
+            srvExec<-i
         }
         if args.CommitIndex < len(raft.logs) - 1 {
             raft.commitIndex = args.CommitIndex
