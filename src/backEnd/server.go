@@ -14,13 +14,14 @@ import (
     "sync"
     "time"
     "strings"
-    "encoding/json"
 )
 
 type Server struct {
     users map[string]*User
     tokens map[string]*User
     commands chan reflect.Value
+    cmdFactory *cmd.CommandFactory
+    commandLogs []reflect.Value
 
     rwLock *sync.RWMutex
     service *Service
@@ -42,6 +43,8 @@ func (srv *Server) Init(id int) {
     srv.users = make(map[string]*User)
     srv.tokens = make(map[string]*User)
     srv.commands = make(chan reflect.Value, 100)
+    srv.cmdFactory = &cmd.CommandFactory{}
+    srv.cmdFactory.Init()
 
     srv.rwLock = &sync.RWMutex{}
     srv.service = &Service{srv.commands}
@@ -79,6 +82,7 @@ func (srv *Server) RegisterAddress(address string, port string) {
 func (srv *Server) leaderInit() {
     srv.nextIndexs = make([]int, len(srv.addressBook))
     srv.commitChan = make(chan int, 100)
+    srv.commandLogs = make([]reflect.Value, 0)
     go srv.commitHandler()
     for i:=0; i<len(srv.addressBook); i++ {
         if i != srv.id {
@@ -89,6 +93,7 @@ func (srv *Server) leaderInit() {
 
 func (srv *Server) leaderShutDown() {
     srv.nextIndexs = nil
+    srv.commandLogs = nil
     close(srv.commitChan)
 }
 
@@ -321,8 +326,7 @@ func (srv *Server) commitHandler() {
         if indexCount[index] > srv.getMajority() {
             for commitIndex := srv.raft.commitIndex + 1; commitIndex <= index; commitIndex++ {
                 delete(indexCount, commitIndex)
-                var cmd
-                srv.exec(srv.raft.logs[commitIndex])
+                srv.exec(srv.commandLogs[commitIndex])
                 srv.raft.commitIndex = commitIndex
             }
         }
@@ -382,12 +386,10 @@ func (srv *Server) followerHandler(index int) {
 
 func (srv *Server) runCommands() {
     for cmd := range srv.commands {
-        encodedCmd, err := json.Marshal(cmd)
-        if err != nil {
-            fmt.Println(err)
-            continue
-        }
-        srv.raft.logs = append(srv.raft.logs, string(encodedCmd))
+        encodedCmd := srv.cmdFactory.Encode(cmd)
+        srv.commandLogs = append(srv.commandLogs, cmd)
+        srv.raft.logs = append(srv.raft.logs, encodedCmd)
+        srv.raft.logTerms = append(srv.raft.logTerms, srv.raft.term)
         srv.raft.index = len(srv.raft.logs) - 1
     }
 }
