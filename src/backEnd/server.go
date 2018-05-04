@@ -379,11 +379,8 @@ func (srv *Server) startVote()bool{
     return false
 }
 
-func (srv *Server) becomeLeader(){
-    //TODO
-}
-
 func (srv *Server) heartBeatHandler(){
+    go srv.updateLastBeat()
     for{
         time.Sleep(timeout)
         if(time.Now().Sub(srv.lastBeatTime) > timeout){
@@ -392,7 +389,9 @@ func (srv *Server) heartBeatHandler(){
             case voteRes := <-startVote:
                 fmt.Println(voteRes)
                 if voteRes{
-                    srv.becomeLeader()
+                    srv.leaderInit()
+                }else{
+                    srv.followerInit()
                 }
             case <-time.After(electionTimer):
                 fmt.Println("election timeout")
