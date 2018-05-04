@@ -58,19 +58,24 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
         for i:= raft.commitIndex; i<= args.CommitIndex; i++{
             //exec
         }
-        raft.commitIndex = min(args.CommitIndex, len(logs)-1)
+        if args.CommitIndex < len(raft.logs) - 1 {
+            raft.commitIndex = args.CommitIndex
+        } else {
+            raft.commitIndex = len(raft.logs) - 1
+        }
     }
 
-    reply.term = raft.term
+    reply.Term = raft.term
+    reply.Success = true
     return nil
 }
 
 func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) error {
-    if args.Term < raft.Term {
+    if args.Term < raft.term {
         reply.VoteGranted = false
-    }else if ((raft.voteFor < 0 || raft.voteFor == args.CandidateId)
-        && len(raft.logs)-1 <= args.lastLogIndex
-        && raft.logTerms[len(raft.logTerms)-1] <= args.LastLogTerm){
+    } else if ((raft.voteFor < 0 || raft.voteFor == args.CandidateId) &&
+            len(raft.logs)-1 <= args.LastLogIndex &&
+            raft.logTerms[len(raft.logTerms)-1] <= args.LastLogTerm) {
         reply.VoteGranted = true
         reply.Term = raft.term
         raft.voteFor = args.CandidateId

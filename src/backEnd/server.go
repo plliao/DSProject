@@ -32,7 +32,7 @@ type Server struct {
 
     network string
     addressBook []string
-    raft Raft
+    raft *Raft
     commitChan chan int
     nextIndexs []int
     id int
@@ -69,7 +69,7 @@ func (srv *Server) Init(id int) {
     srv.validPassword, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
 
     srv.id = id
-    srv.raft = Raft{
+    srv.raft = &Raft{
         isLeader:false,
         term:0,
         index:-1,
