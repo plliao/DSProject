@@ -389,6 +389,7 @@ func (srv *Server) heartBeatHandler(){
             case voteRes := <-startVote:
                 fmt.Println(voteRes)
                 if voteRes{
+                    srv. followerShutDown()
                     srv.leaderInit()
                 }else{
                     srv.followerInit()
@@ -450,6 +451,11 @@ func (srv *Server) followerHandler(index int) {
             fmt.Print(err)
             client.Init(srv.network, srv.addressBook[index])
             continue
+        }
+        if reply.Trem > srv.raft.term {
+            //convert to follower
+            srv.leaderShutDown()
+            srv.followerInit()
         }
         if command != "" {
             if reply.Success {
