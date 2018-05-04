@@ -3,6 +3,7 @@ package cmd
 import (
     "reflect"
     "encoding/json"
+    "fmt"
 )
 
 type CommandFactory struct {
@@ -38,15 +39,19 @@ func (factory *CommandFactory) Encode(value reflect.Value) string {
 }
 
 func (factory *CommandFactory) Decode(encoded string) (string, []reflect.Value) {
+    fmt.Printf("Command encoded %s\n", encoded)
     command := Command{}
-    json.Unmarshal([]byte(encoded), command)
+    err := json.Unmarshal([]byte(encoded), &command)
+    fmt.Print(err)
+    fmt.Printf("Command %v\n", command)
 
     cmdArgsType := factory.commandMap[command.Name]
+    fmt.Printf("Command Name: %s, Type: %v\n", command.Name, cmdArgsType)
     cmdArgs := reflect.New(cmdArgsType)
-    json.Unmarshal([]byte(command.Args), cmdArgs)
+    json.Unmarshal([]byte(command.Args), cmdArgs.Interface())
     parameters := make([]reflect.Value, 0)
-    for i:=0; i<cmdArgs.NumField(); i++ {
-        parameters = append(parameters, cmdArgs.Field(i))
+    for i:=0; i<cmdArgs.Elem().NumField(); i++ {
+        parameters = append(parameters, cmdArgs.Elem().Field(i))
     }
     return command.Name, parameters
 }
