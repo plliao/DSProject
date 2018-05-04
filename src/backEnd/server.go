@@ -40,6 +40,7 @@ type Server struct {
 
     toExecChan chan int
     heartBeatChan chan bool
+    lastBeatTime Time
 }
 
 func (srv *Server) Init(id int) {
@@ -352,9 +353,51 @@ func (srv *Server) commitHandler() {
     }
 }
 
-func (srv *Server) heartBeatHandler() {
-    for _ = range srv.heartBeatChan {
+func (srv *Server) updateLastBeat(){
+    for{
+        srv.lastBeatTime<-heartBeatChan
+    }
+}
 
+func (srv *Server) startVote()bool{
+    count := 0
+    srv.raft.term = srv.raft.term + 1
+    for index in range(srv.addressBook){
+        client := RaftClient{address:srv.addressBook[index]}
+        reply, err := client.RequestVote(
+            srv.raft.term,
+            srv.id,
+            len(srv.raft.logs)-1,
+            srv.raft.logTerms[len(srv.raft.logs)-1])
+        if reply.VoteGranted{
+            count++
+        }
+        if count > srv.getMajority(){
+            return true
+        }
+    }
+    return false
+}
+
+func (srv *Server) becomeLeader(){
+    //TODO
+}
+
+func (srv *Server) heartBeatHandler(){
+    for{
+        time.Sleep(timeout)
+        if(time.Now().Sub(srv.lastBeatTime) > timeout){
+            electionTimer := rand.Float64() * timeout 
+            select {
+            case voteRes := <-startVote:
+                fmt.Println(voteRes)
+                if voteRes{
+                    srv.becomeLeader()
+                }
+            case <-time.After(electionTimer):
+                fmt.Println("election timeout")
+            }
+        }
     }
 }
 
