@@ -347,7 +347,21 @@ func (srv *Server) updateLastBeat(){
 }
 
 func (srv *Server) startVote(){
-    
+    count := 0
+    for index in range(srv.addressBook){
+        client := RaftClient{address:srv.addressBook[index]}
+        reply, err := client.RequestVote(
+            srv.raft.term,
+            srv.id,
+            len(srv.raft.logs)-1,
+            srv.raft.logTerms[len(srv.raft.logs)-1])
+        if reply.VoteGranted{
+            count++
+        }
+        if count > srv.getMajority(){
+            //become leader
+        }
+    }
 }
 
 func (srv *Server) heartBeatHandler(){
