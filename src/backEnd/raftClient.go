@@ -37,3 +37,16 @@ func (client *RaftClient) AppendEntry(
     err := client.rpcClient.Call("Raft.AppendEntry", args, &reply)
     return reply, err
 }
+
+func (client *RaftClient) RequestVote(
+        term int, candidateId int, lastLogIndex int, lastLogTerm int) (RequestVoteReply, error) {
+    args := RequestVoteArgs{
+        Term:term,
+        CandidateId:candidateId,
+        LastLogIndex:lastLogIndex,
+        LastLogTerm:lastLogTerm
+    }
+    reply := RequestVoteReply{}
+    err := client.rpcClient.Call("Raft.RequestVote", args, &reply)
+    return reply, err
+}
