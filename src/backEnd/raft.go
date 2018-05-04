@@ -44,21 +44,21 @@ type RequestVoteReply struct {
 
 func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) error {
     fmt.Print("Receive AppendEntry\n")
-    if args.term < raft.term || raft.logTerms[prevLogIndex] != prevLogTerm{
-        reply.success = false
+    if args.Term < raft.term || raft.logTerms[args.PrevLogIndex] != args.PrevLogTerm{
+        reply.Success = false
     }
-    if len(raft.logs)-1 == args.prevLogIndex{
-        raft.logs = append(raft.logs, command)
-        reply.success = true
-    }else if len(raft.logs) >= args.prevLogIndex+1 && raft.logs[prevLogIndex+1] != command{
-        raft.logs = raft.logs[:prevLogIndex]
-        reply.success = false
+    if len(raft.logs)-1 == args.PrevLogIndex{
+        raft.logs = append(raft.logs, args.Command)
+        reply.Success = true
+    }else if len(raft.logs) >= args.PrevLogIndex+1 && raft.logs[args.PrevLogIndex+1] != args.Command{
+        raft.logs = raft.logs[:args.PrevLogIndex]
+        reply.Success = false
     }
-    if args.commitIndex > raft.commitIndex {
-        for i:= raft.commitIndex; i<= args.commitIndex; i++{
+    if args.CommitIndex > raft.commitIndex {
+        for i:= raft.commitIndex; i<= args.CommitIndex; i++{
             //exec
         }
-        raft.commitIndex = min(commitIndex, len(logs)-1)
+        raft.commitIndex = min(args.CommitIndex, len(logs)-1)
     }
 
     reply.term = raft.term
@@ -66,14 +66,14 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
 }
 
 func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) error {
-    if args.term < raft.term {
-        reply.voteGranted = false
-    }else if ((raft.voteFor < 0 || raft.voteFor == args.candidateId)
+    if args.Term < raft.Term {
+        reply.VoteGranted = false
+    }else if ((raft.voteFor < 0 || raft.voteFor == args.CandidateId)
         && len(raft.logs)-1 <= args.lastLogIndex
-        && raft.logTerms[len(raft.logTerms)-1] <= args.lastLogTerm){
-        reply.voteGranted = true
-        reply.term = raft.term
-        raft.voteFor = args.candidateId
+        && raft.logTerms[len(raft.logTerms)-1] <= args.LastLogTerm){
+        reply.VoteGranted = true
+        reply.Term = raft.term
+        raft.voteFor = args.CandidateId
     }
     return nil
 }
