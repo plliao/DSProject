@@ -77,6 +77,7 @@ func (srv *Server) Init(id int) {
     srv.network = "tcp"
     srv.addressBook = make([]string, 0)
     srv.timeout = 1000 * time.Millisecond
+    srv.lastBeatTime = time.Now()
 }
 
 func (srv *Server) RegisterAddress(address string, port string) {
@@ -363,19 +364,19 @@ func (srv *Server) updateLastBeat() {
 }
 
 func (srv *Server) startVote() bool {
-    count := 0
+    count := 1
     srv.raft.term = srv.raft.term + 1
-    for index := range srv.addressBook {
+    srv.raft.voteFor = srv.id
+    for index, _ := range srv.addressBook {
         if srv.id == index {
             continue
         }
         client := RaftClient{}
-        client.Init(srv.network, srv.addressBook[index])
-        lastLogIndex := srv.raft.index
-        lastLogTerm := -1
-        if lastLogIndex >= 0 {
-            lastLogTerm = srv.raft.logTerms[lastLogIndex]
+        err := client.InitOnce(srv.network, srv.addressBook[index])
+        if err != nil {
+            continue
         }
+        lastLogIndex, lastLogTerm := srv.raft.getLastIndexAndTerm()
         reply, err := client.RequestVote(
             srv.raft.term,
             srv.id,
@@ -395,26 +396,25 @@ func (srv *Server) heartBeatHandler(){
     go srv.updateLastBeat()
     for{
         time.Sleep(srv.timeout)
-        if time.Now().Sub(srv.lastBeatTime) > 100 * srv.timeout {
+        //randomTimeout := time.Duration(mrand.Intn(5)) * srv.timeout
+        if time.Now().Sub(srv.lastBeatTime) > 10 * srv.timeout {
+            srv.lastBeatTime = time.Now()
             fmt.Print("Leader timeout\n")
-            //r := mrand.Intn(10)
-            //electionTimer := time.Duration(r) * srv.timeout
-            //startVoteChan := make(chan bool, 1)
-            /*go func(){
+            electionTimer := 10 * srv.timeout
+            startVoteChan := make(chan bool, 1)
+            go func(){
                 startVoteChan <- srv.startVote()
             }()
             select {
-            case voteRes := <-startVoteChan:
-                fmt.Println(voteRes)
-                if voteRes{
-                    //srv.followerShutDown()
-                    //srv.leaderInit()
-                }else{
-                    //srv.followerInit()
-                }
-            case <-time.After(electionTimer):
-                fmt.Println("election timeout")
-            }*/
+                case voteRes := <-startVoteChan:
+                    fmt.Printf("Election result: %b\n", voteRes)
+                    if voteRes {
+                        srv.followerShutDown()
+                        srv.leaderInit()
+                    }
+                case <-time.After(electionTimer):
+                    fmt.Println("election timeout")
+            }
         }
     }
 }
@@ -447,6 +447,8 @@ func (srv *Server) followerHandler(index int) {
             nextIndex = srv.raft.index + 1
             time.Sleep(srv.timeout)
         } else {
+            fmt.Printf("server log %v\n", srv.raft.logs)
+            fmt.Printf("handler %d nextIndex %v\n", index, nextIndex)
             command = srv.raft.logs[nextIndex]
         }
 
@@ -472,8 +474,8 @@ func (srv *Server) followerHandler(index int) {
         }
         if reply.Term > srv.raft.term {
             //convert to follower
-            //srv.leaderShutDown()
-            //srv.followerInit()
+            srv.leaderShutDown()
+            srv.followerInit()
         }
         if command != "" {
             if reply.Success {
@@ -481,6 +483,9 @@ func (srv *Server) followerHandler(index int) {
                 srv.nextIndexs[index]++
             } else {
                 srv.nextIndexs[index]--
+                if srv.nextIndexs[index] < 0 {
+                    srv.nextIndexs[index] = 0
+                }
             }
         }
     }
