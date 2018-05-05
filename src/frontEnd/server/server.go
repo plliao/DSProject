@@ -30,8 +30,9 @@ func (srv *Server)ClientConnect() (*rpc.Client, error){
     return client, err
 }
 
-func (srv *Server) InitialDial(filePath string){
+func (srv *Server) InitialDial(network string, filePath string){
     file, err := os.Open(filePath)
+    srv.network = network
     if err != nil {
         return
     }
