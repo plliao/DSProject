@@ -9,4 +9,5 @@ type BackEndMessages struct {
     UnrecognizedToken string
     FunctionNotImplement string
     EmptyToken string
+    NotLeader string
 }
