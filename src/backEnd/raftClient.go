@@ -13,13 +13,18 @@ type RaftClient struct{
 
 func (client *RaftClient) Init(network string, address string) {
     fmt.Print("Start to Connect with " + address + "\n")
-    rpcClient, err := rpc.DialHTTP(network, address)
+    err := client.InitOnce(network, address)
     for ; err != nil; {
         time.Sleep(1000 * time.Millisecond)
         fmt.Print("Attempt to Connect with " + address + "\n")
-        rpcClient, err = rpc.DialHTTP(network, address)
+        err = client.InitOnce(network, address)
     }
+}
+
+func (client *RaftClient) InitOnce(network string, address string) error {
+    rpcClient, err := rpc.DialHTTP(network, address)
     client.rpcClient = rpcClient
+    return err
 }
 
 func (client *RaftClient) AppendEntry(
