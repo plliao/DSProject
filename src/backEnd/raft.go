@@ -58,6 +58,15 @@ func (raft *Raft) resetCommand(prevLogIndex int) {
     raft.index = len(raft.logs) - 1
 }
 
+func (raft *Raft) getLastIndexAndTerm() (int, int) {
+    lastLogIndex := raft.index
+    lastLogTerm := -1
+    if lastLogIndex >= 0 {
+        lastLogTerm = raft.logTerms[lastLogIndex]
+    }
+    return lastLogIndex, lastLogTerm
+}
+
 func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) error {
     raft.heartBeatChan <- time.Now()
     reply.Term = raft.term
@@ -67,6 +76,8 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
         reply.Success = false
         return nil
     }
+
+    raft.voteFor = -1
 
     if len(raft.logs) - 1 == args.PrevLogIndex{
         if args.Command != "" {
@@ -93,17 +104,16 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
         }
         raft.commitIndex = newCommitIndex
     }
-    raft.voteFor = -1
     reply.Success = true
     return nil
 }
 
 func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) error {
+    lastLogIndex, lastLogTerm := raft.getLastIndexAndTerm()
     if args.Term < raft.term {
         reply.VoteGranted = false
     } else if ((raft.voteFor < 0 || raft.voteFor == args.CandidateId) &&
-            len(raft.logs)-1 <= args.LastLogIndex &&
-            raft.logTerms[len(raft.logTerms)-1] <= args.LastLogTerm) {
+            lastLogIndex <= args.LastLogIndex && lastLogTerm <= args.LastLogTerm) {
         reply.VoteGranted = true
         reply.Term = raft.term
         raft.voteFor = args.CandidateId
