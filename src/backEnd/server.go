@@ -40,7 +40,7 @@ type Server struct {
 
     toExecChan chan int
     heartBeatChan chan bool
-    lastBeatTime Time
+    lastBeatTime time.Time
 }
 
 func (srv *Server) Init(id int) {
