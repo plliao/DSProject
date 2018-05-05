@@ -39,7 +39,7 @@ type Server struct {
     timeout time.Duration
 
     toExecChan chan int
-    heartBeatChan chan bool
+    heartBeatChan chan time.Time
     lastBeatTime time.Time
 }
 
@@ -355,7 +355,7 @@ func (srv *Server) commitHandler() {
 
 func (srv *Server) updateLastBeat(){
     for{
-        srv.lastBeatTime<-srv.heartBeatChan
+        srv.lastBeatTime := <-srv.raft.heartBeatChan
     }
 }
 
@@ -403,7 +403,7 @@ func (srv *Server) heartBeatHandler(){
 
 func (srv *Server) execHandler() {
     srvValue := reflect.ValueOf(srv)
-    for execID :=  range srv.toExecChan {
+    for execID :=  range srv.raft.toExecChan {
         encodedCmd := srv.raft.logs[execID]
         funcName, parameters := srv.cmdFactory.Decode(encodedCmd)
         f := srvValue.MethodByName(funcName)
