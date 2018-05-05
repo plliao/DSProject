@@ -46,6 +46,18 @@ type RequestVoteReply struct {
     VoteGranted bool
 }
 
+func (raft *Raft) appendCommand(command string, term int) {
+    raft.logs = append(raft.logs, command)
+    raft.logTerms = append(raft.logTerms, term)
+    raft.index = len(raft.logs) - 1
+}
+
+func (raft *Raft) resetCommand(prevLogIndex int) {
+    raft.logs = raft.logs[:prevLogIndex]
+    raft.logTerms = raft.logTerms[:prevLogIndex]
+    raft.index = len(raft.logs) - 1
+}
+
 func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) error {
     raft.heartBeatChan <- time.Now()
     reply.Term = raft.term
@@ -59,15 +71,13 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
     if len(raft.logs) - 1 == args.PrevLogIndex{
         if args.Command != "" {
             fmt.Print("Append command " + args.Command + "\n")
-            raft.logs = append(raft.logs, args.Command)
-            raft.logTerms = append(raft.logTerms, args.Term)
+            raft.appendCommand(args.Command, args.Term)
         } else {
             fmt.Print("HeartBeat\n")
         }
     } else if len(raft.logs) > args.PrevLogIndex + 1 {
         if raft.logs[args.PrevLogIndex + 1] != args.Command {
-            raft.logs = raft.logs[:args.PrevLogIndex]
-            raft.logTerms = raft.logTerms[:args.PrevLogIndex]
+            raft.resetCommand(args.PrevLogIndex)
             reply.Success = false
             return nil
         }
