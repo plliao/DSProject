@@ -362,7 +362,7 @@ func (srv *Server) updateLastBeat(){
 func (srv *Server) startVote()bool{
     count := 0
     srv.raft.term = srv.raft.term + 1
-    for index in range(srv.addressBook){
+    for index := range srv.addressBook {
         client := RaftClient{address:srv.addressBook[index]}
         reply, err := client.RequestVote(
             srv.raft.term,
