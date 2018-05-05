@@ -89,7 +89,7 @@ func (srv *Server) leaderInit() {
     srv.commitChan = make(chan int, 100)
     srv.commandLogs = make([]reflect.Value, 0)
     go srv.commitHandler()
-    for i:=0; i<len(srv.addressBook); i++ {
+    for i, _ := range srv.addressBook {
         if i != srv.id {
             go srv.followerHandler(i)
         }
@@ -354,26 +354,35 @@ func (srv *Server) commitHandler() {
     }
 }
 
-func (srv *Server) updateLastBeat(){
+func (srv *Server) updateLastBeat() {
     for{
         srv.lastBeatTime =<-srv.raft.heartBeatChan
     }
 }
 
-func (srv *Server) startVote()bool{
+func (srv *Server) startVote() bool {
     count := 0
     srv.raft.term = srv.raft.term + 1
     for index := range srv.addressBook {
-        client := RaftClient{address:srv.addressBook[index]}
+        if srv.id == index {
+            continue
+        }
+        client := RaftClient{}
+        client.Init(srv.network, srv.addressBook[index])
+        lastLogIndex := srv.raft.index
+        lastLogTerm := -1
+        if lastLogIndex >= 0 {
+            lastLogTerm = srv.raft.logTerms[lastLogIndex]
+        }
         reply, err := client.RequestVote(
             srv.raft.term,
             srv.id,
-            len(srv.raft.logs)-1,
-            srv.raft.logTerms[len(srv.raft.logs)-1])
-        if err == nil && reply.VoteGranted{
+            lastLogIndex,
+            lastLogTerm)
+        if err == nil && reply.VoteGranted {
             count++
         }
-        if count > srv.getMajority(){
+        if count > srv.getMajority() {
             return true
         }
     }
@@ -384,9 +393,9 @@ func (srv *Server) heartBeatHandler(){
     go srv.updateLastBeat()
     for{
         time.Sleep(srv.timeout)
-        if(time.Now().Sub(srv.lastBeatTime) > srv.timeout){
+        if(time.Now().Sub(srv.lastBeatTime) > 2 * srv.timeout){
             r := mrand.Intn(10)
-            electionTimer := time.Duration(r) * srv.timeout 
+            electionTimer := time.Duration(r) * srv.timeout
             startVoteChan := make(chan bool, 1)
             go func(){
                 startVoteChan <- srv.startVote()
@@ -395,10 +404,10 @@ func (srv *Server) heartBeatHandler(){
             case voteRes := <-startVoteChan:
                 fmt.Println(voteRes)
                 if voteRes{
-                    srv. followerShutDown()
+                    srv.followerShutDown()
                     srv.leaderInit()
                 }else{
-                    srv.followerInit()
+                    //srv.followerInit()
                 }
             case <-time.After(electionTimer):
                 fmt.Println("election timeout")
@@ -460,8 +469,8 @@ func (srv *Server) followerHandler(index int) {
         }
         if reply.Term > srv.raft.term {
             //convert to follower
-            srv.leaderShutDown()
-            srv.followerInit()
+            //srv.leaderShutDown()
+            //srv.followerInit()
         }
         if command != "" {
             if reply.Success {
