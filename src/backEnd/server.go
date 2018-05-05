@@ -8,6 +8,7 @@ import (
     "regexp"
     "errors"
     "crypto/rand"
+    mrand "math/rand"
     "fmt"
     "reflect"
     "backEnd/cmd"
@@ -39,8 +40,8 @@ type Server struct {
     timeout time.Duration
 
     toExecChan chan int
-    heartBeatChan chan bool
-    lastBeatTime Time
+    heartBeatChan chan time.Time
+    lastBeatTime time.Time
 }
 
 func (srv *Server) Init(id int) {
@@ -103,7 +104,7 @@ func (srv *Server) leaderShutDown() {
 
 func (srv *Server) followerInit() {
     srv.toExecChan = make(chan int, 100)
-    srv.heartBeatChan = make(chan bool, 100)
+    srv.heartBeatChan = make(chan time.Time, 100)
     srv.raft.toExecChan = srv.toExecChan
     srv.raft.heartBeatChan = srv.heartBeatChan
     go srv.execHandler()
@@ -355,21 +356,21 @@ func (srv *Server) commitHandler() {
 
 func (srv *Server) updateLastBeat(){
     for{
-        srv.lastBeatTime<-heartBeatChan
+        srv.lastBeatTime =<-srv.raft.heartBeatChan
     }
 }
 
 func (srv *Server) startVote()bool{
     count := 0
     srv.raft.term = srv.raft.term + 1
-    for index in range(srv.addressBook){
+    for index := range srv.addressBook {
         client := RaftClient{address:srv.addressBook[index]}
         reply, err := client.RequestVote(
             srv.raft.term,
             srv.id,
             len(srv.raft.logs)-1,
             srv.raft.logTerms[len(srv.raft.logs)-1])
-        if reply.VoteGranted{
+        if err == nil && reply.VoteGranted{
             count++
         }
         if count > srv.getMajority(){
@@ -382,13 +383,19 @@ func (srv *Server) startVote()bool{
 func (srv *Server) heartBeatHandler(){
     go srv.updateLastBeat()
     for{
-        time.Sleep(timeout)
-        if(time.Now().Sub(srv.lastBeatTime) > timeout){
-            electionTimer := rand.Float64() * timeout 
+        time.Sleep(srv.timeout)
+        if(time.Now().Sub(srv.lastBeatTime) > srv.timeout){
+            r := mrand.Intn(10)
+            electionTimer := time.Duration(r) * srv.timeout 
+            startVoteChan := make(chan bool, 1)
+            go func(){
+                startVoteChan <- srv.startVote()
+            }()
             select {
-            case voteRes := <-startVote:
+            case voteRes := <-startVoteChan:
                 fmt.Println(voteRes)
                 if voteRes{
+                    srv. followerShutDown()
                     srv.leaderInit()
                 }else{
                     srv.followerInit()
@@ -402,7 +409,7 @@ func (srv *Server) heartBeatHandler(){
 
 func (srv *Server) execHandler() {
     srvValue := reflect.ValueOf(srv)
-    for execID :=  range srv.toExecChan {
+    for execID :=  range srv.raft.toExecChan {
         encodedCmd := srv.raft.logs[execID]
         funcName, parameters := srv.cmdFactory.Decode(encodedCmd)
         f := srvValue.MethodByName(funcName)
@@ -450,6 +457,11 @@ func (srv *Server) followerHandler(index int) {
             fmt.Print(err)
             client.Init(srv.network, srv.addressBook[index])
             continue
+        }
+        if reply.Term > srv.raft.term {
+            //convert to follower
+            srv.leaderShutDown()
+            srv.followerInit()
         }
         if command != "" {
             if reply.Success {

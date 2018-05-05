@@ -44,7 +44,7 @@ func (client *RaftClient) RequestVote(
         Term:term,
         CandidateId:candidateId,
         LastLogIndex:lastLogIndex,
-        LastLogTerm:lastLogTerm
+        LastLogTerm:lastLogTerm,
     }
     reply := RequestVoteReply{}
     err := client.rpcClient.Call("Raft.RequestVote", args, &reply)
