@@ -8,6 +8,7 @@ import (
     "regexp"
     "errors"
     "crypto/rand"
+    mrand "math/rand"
     "fmt"
     "reflect"
     "backEnd/cmd"
@@ -369,7 +370,7 @@ func (srv *Server) startVote()bool{
             srv.id,
             len(srv.raft.logs)-1,
             srv.raft.logTerms[len(srv.raft.logs)-1])
-        if reply.VoteGranted{
+        if err == nil && reply.VoteGranted{
             count++
         }
         if count > srv.getMajority(){
@@ -384,7 +385,8 @@ func (srv *Server) heartBeatHandler(){
     for{
         time.Sleep(srv.timeout)
         if(time.Now().Sub(srv.lastBeatTime) > srv.timeout){
-            electionTimer := rand.Float64() * srv.timeout 
+            r := mrand.Intn(10)
+            electionTimer := time.Duration(r) * srv.timeout 
             startVoteChan := make(chan bool, 1)
             go func(){
                 startVoteChan <- srv.startVote()
