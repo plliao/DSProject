@@ -8,7 +8,7 @@ import (
     "regexp"
     "errors"
     "crypto/rand"
-    mrand "math/rand"
+    //mrand "math/rand"
     "fmt"
     "reflect"
     "backEnd/cmd"
@@ -85,6 +85,7 @@ func (srv *Server) RegisterAddress(address string, port string) {
 }
 
 func (srv *Server) leaderInit() {
+    srv.raft.isLeader = true
     srv.nextIndexs = make([]int, len(srv.addressBook))
     srv.commitChan = make(chan int, 100)
     srv.commandLogs = make([]reflect.Value, 0)
@@ -100,6 +101,7 @@ func (srv *Server) leaderShutDown() {
     srv.nextIndexs = nil
     srv.commandLogs = nil
     close(srv.commitChan)
+    srv.raft.isLeader = false
 }
 
 func (srv *Server) followerInit() {
@@ -393,25 +395,26 @@ func (srv *Server) heartBeatHandler(){
     go srv.updateLastBeat()
     for{
         time.Sleep(srv.timeout)
-        if(time.Now().Sub(srv.lastBeatTime) > 2 * srv.timeout){
-            r := mrand.Intn(10)
-            electionTimer := time.Duration(r) * srv.timeout
-            startVoteChan := make(chan bool, 1)
-            go func(){
+        if time.Now().Sub(srv.lastBeatTime) > 100 * srv.timeout {
+            fmt.Print("Leader timeout\n")
+            //r := mrand.Intn(10)
+            //electionTimer := time.Duration(r) * srv.timeout
+            //startVoteChan := make(chan bool, 1)
+            /*go func(){
                 startVoteChan <- srv.startVote()
             }()
             select {
             case voteRes := <-startVoteChan:
                 fmt.Println(voteRes)
                 if voteRes{
-                    srv.followerShutDown()
-                    srv.leaderInit()
+                    //srv.followerShutDown()
+                    //srv.leaderInit()
                 }else{
                     //srv.followerInit()
                 }
             case <-time.After(electionTimer):
                 fmt.Println("election timeout")
-            }
+            }*/
         }
     }
 }
@@ -490,9 +493,7 @@ func (srv *Server) runCommands() {
         } else {
             encodedCmd := srv.cmdFactory.Encode(cmd)
             srv.commandLogs = append(srv.commandLogs, cmd)
-            srv.raft.logs = append(srv.raft.logs, encodedCmd)
-            srv.raft.logTerms = append(srv.raft.logTerms, srv.raft.term)
-            srv.raft.index = len(srv.raft.logs) - 1
+            srv.raft.appendCommand(encodedCmd, srv.raft.term)
         }
     }
 }
@@ -512,7 +513,6 @@ func (srv *Server) Start() {
     }
     fmt.Print("BackEnd serving on " + address + "\n")
     if srv.id == 0 {
-        srv.raft.isLeader = true
         srv.leaderInit()
     } else {
         srv.followerInit()
