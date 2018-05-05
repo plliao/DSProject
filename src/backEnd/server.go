@@ -355,7 +355,7 @@ func (srv *Server) commitHandler() {
 
 func (srv *Server) updateLastBeat(){
     for{
-        srv.lastBeatTime <-srv.raft.heartBeatChan
+        srv.lastBeatTime =<-srv.raft.heartBeatChan
     }
 }
 
