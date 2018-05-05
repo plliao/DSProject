@@ -103,7 +103,7 @@ func (srv *Server) leaderShutDown() {
 
 func (srv *Server) followerInit() {
     srv.toExecChan = make(chan int, 100)
-    srv.heartBeatChan = make(chan bool, 100)
+    srv.heartBeatChan = make(chan time.Time, 100)
     srv.raft.toExecChan = srv.toExecChan
     srv.raft.heartBeatChan = srv.heartBeatChan
     go srv.execHandler()
@@ -355,7 +355,7 @@ func (srv *Server) commitHandler() {
 
 func (srv *Server) updateLastBeat(){
     for{
-        srv.lastBeatTime := <-srv.raft.heartBeatChan
+        srv.lastBeatTime <-srv.raft.heartBeatChan
     }
 }
 
@@ -385,8 +385,12 @@ func (srv *Server) heartBeatHandler(){
         time.Sleep(srv.timeout)
         if(time.Now().Sub(srv.lastBeatTime) > srv.timeout){
             electionTimer := rand.Float64() * srv.timeout 
+            startVoteChan := make(chan bool, 1)
+            go func(){
+                startVoteChan <- srv.startVote()
+            }()
             select {
-            case voteRes := <-srv.startVote:
+            case voteRes := <-startVoteChan:
                 fmt.Println(voteRes)
                 if voteRes{
                     srv. followerShutDown()
