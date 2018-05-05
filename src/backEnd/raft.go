@@ -2,6 +2,7 @@ package backEnd
 
 import (
     "fmt"
+    "time"
 )
 
 type Raft struct {
@@ -16,7 +17,7 @@ type Raft struct {
     logTerms []int
 
     toExecChan chan int
-    heartBeatChan chan bool
+    heartBeatChan chan time.Time
 }
 
 type AppendEntryArgs struct {
@@ -46,7 +47,7 @@ type RequestVoteReply struct {
 }
 
 func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) error {
-    raft.heartBeatChan <- true
+    raft.heartBeatChan <- time.Now()
     reply.Term = raft.term
 
     if args.Term < raft.term || args.PrevLogIndex >= len(raft.logs) ||
