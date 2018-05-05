@@ -355,7 +355,7 @@ func (srv *Server) commitHandler() {
 
 func (srv *Server) updateLastBeat(){
     for{
-        srv.lastBeatTime<-heartBeatChan
+        srv.lastBeatTime<-srv.heartBeatChan
     }
 }
 
@@ -382,11 +382,11 @@ func (srv *Server) startVote()bool{
 func (srv *Server) heartBeatHandler(){
     go srv.updateLastBeat()
     for{
-        time.Sleep(timeout)
-        if(time.Now().Sub(srv.lastBeatTime) > timeout){
-            electionTimer := rand.Float64() * timeout 
+        time.Sleep(srv.timeout)
+        if(time.Now().Sub(srv.lastBeatTime) > srv.timeout){
+            electionTimer := rand.Float64() * srv.timeout 
             select {
-            case voteRes := <-startVote:
+            case voteRes := <-srv.startVote:
                 fmt.Println(voteRes)
                 if voteRes{
                     srv. followerShutDown()
@@ -452,7 +452,7 @@ func (srv *Server) followerHandler(index int) {
             client.Init(srv.network, srv.addressBook[index])
             continue
         }
-        if reply.Trem > srv.raft.term {
+        if reply.Term > srv.raft.term {
             //convert to follower
             srv.leaderShutDown()
             srv.followerInit()
