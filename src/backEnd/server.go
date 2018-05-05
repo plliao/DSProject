@@ -357,6 +357,7 @@ func (srv *Server) commitHandler() {
 func (srv *Server) updateLastBeat(){
     for{
         srv.lastBeatTime =<-srv.raft.heartBeatChan
+        fmt.Printf("%d", srv.lastBeatTime)
     }
 }
 
@@ -365,11 +366,16 @@ func (srv *Server) startVote()bool{
     srv.raft.term = srv.raft.term + 1
     for index := range srv.addressBook {
         client := RaftClient{address:srv.addressBook[index]}
+        fmt.Printf("raft term: %d", srv.raft.term)
+        voteTerm := srv.raft.term
+        if len(srv.raft.logTerms) > 0{
+            voteTerm = srv.raft.logTerms[len(srv.raft.logs)-1]
+        }
         reply, err := client.RequestVote(
             srv.raft.term,
             srv.id,
             len(srv.raft.logs)-1,
-            srv.raft.logTerms[len(srv.raft.logs)-1])
+            voteTerm)
         if err == nil && reply.VoteGranted{
             count++
         }
@@ -383,10 +389,10 @@ func (srv *Server) startVote()bool{
 func (srv *Server) heartBeatHandler(){
     go srv.updateLastBeat()
     for{
-        time.Sleep(srv.timeout)
+        time.Sleep(2 * srv.timeout)
         if(time.Now().Sub(srv.lastBeatTime) > srv.timeout){
             r := mrand.Intn(10)
-            electionTimer := time.Duration(r) * srv.timeout 
+            electionTimer := time.Duration(r) * 100 * srv.timeout 
             startVoteChan := make(chan bool, 1)
             go func(){
                 startVoteChan <- srv.startVote()
