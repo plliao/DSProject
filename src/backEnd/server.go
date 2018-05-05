@@ -62,6 +62,7 @@ func (srv *Server) Init(id int) {
         UnrecognizedToken:"Unrecognized token",
         FunctionNotImplement:"Function not implemented",
         EmptyToken:"",
+        NotLeader:"Not Leader: ",
     }
 
     srv.validUserName, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
@@ -335,6 +336,14 @@ func (srv *Server) exec(cmdValue reflect.Value) {
     cmdValue.Field(1).Send(reply)
 }
 
+func (srv *Server) replyNotLeader(cmdValue reflect.Value) {
+    replyType := cmdValue.Field(1).Type().Elem().Elem()
+    reply := reflect.New(replyType)
+    reply.Elem().Field(0).Set(reflect.ValueOf(false))
+    reply.Elem().Field(1).Set(reflect.ValueOf(srv.messages.NotLeader + srv.addressBook[srv.raft.leaderId]))
+    cmdValue.Field(1).Send(reply)
+}
+
 func (srv *Server) commitHandler() {
     indexCount := make(map[int]int)
     for index := range(srv.commitChan) {
@@ -358,8 +367,8 @@ func (srv *Server) commitHandler() {
 }
 
 func (srv *Server) updateLastBeat() {
-    for{
-        srv.lastBeatTime =<-srv.raft.heartBeatChan
+    for beatTime := range srv.raft.heartBeatChan {
+        srv.lastBeatTime = beatTime
     }
 }
 
@@ -394,7 +403,7 @@ func (srv *Server) startVote() bool {
 
 func (srv *Server) heartBeatHandler(){
     go srv.updateLastBeat()
-    for{
+    for {
         time.Sleep(srv.timeout)
         //randomTimeout := time.Duration(mrand.Intn(5)) * srv.timeout
         if time.Now().Sub(srv.lastBeatTime) > 10 * srv.timeout {
@@ -407,10 +416,11 @@ func (srv *Server) heartBeatHandler(){
             }()
             select {
                 case voteRes := <-startVoteChan:
-                    fmt.Printf("Election result: %b\n", voteRes)
+                    fmt.Printf("Election result: %v\n", voteRes)
                     if voteRes {
                         srv.followerShutDown()
                         srv.leaderInit()
+                        return
                     }
                 case <-time.After(electionTimer):
                     fmt.Println("election timeout")
@@ -447,8 +457,6 @@ func (srv *Server) followerHandler(index int) {
             nextIndex = srv.raft.index + 1
             time.Sleep(srv.timeout)
         } else {
-            fmt.Printf("server log %v\n", srv.raft.logs)
-            fmt.Printf("handler %d nextIndex %v\n", index, nextIndex)
             command = srv.raft.logs[nextIndex]
         }
 
@@ -473,9 +481,14 @@ func (srv *Server) followerHandler(index int) {
             continue
         }
         if reply.Term > srv.raft.term {
-            //convert to follower
-            srv.leaderShutDown()
-            srv.followerInit()
+            srv.rwLock.Lock()
+            defer srv.rwLock.Unlock()
+            if srv.raft.isLeader {
+                srv.raft.term = reply.Term
+                srv.leaderShutDown()
+                srv.followerInit()
+            }
+            break
         }
         if command != "" {
             if reply.Success {
@@ -493,6 +506,10 @@ func (srv *Server) followerHandler(index int) {
 
 func (srv *Server) runCommands() {
     for cmd := range srv.commands {
+        if !srv.raft.isLeader {
+            srv.replyNotLeader(cmd)
+            continue
+        }
         if srv.isReadOnly(cmd) {
             go srv.exec(cmd)
         } else {

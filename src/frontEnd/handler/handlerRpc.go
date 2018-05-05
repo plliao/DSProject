@@ -11,6 +11,13 @@ import (
     //"log"
 )
 
+func ClientCall(client *rpc.Client, service string, args interface, reply interface) (error, interface) {
+    err := client.Call(service, args, &reply)
+    if reply.Ok == false && reply.Error[:12] == "Not Leader: " {
+        address := reply.Error[12:]
+    }
+}
+
 func ClientPostRPC(token string, post string, client *rpc.Client) (error, cmd.PostReply){
 	args := cmd.PostArgs { Token:token, Content:post }
 	var reply cmd.PostReply
@@ -48,7 +55,7 @@ func ClientGetMyContentRPC(token string, client *rpc.Client) (error, cmd.GetMyCo
 
 func ClientGetFollowerRPC(token string, client *rpc.Client) (string, cmd.GetFollowerReply){
 	args := cmd.GetFollowerArgs{ Token:token }
-    var reply cmd.GetFollowerReply 
+    var reply cmd.GetFollowerReply
     err := client.Call("Service." + "GetFollower", args, &reply)
     errmsg := ""
     if(err != nil){

@@ -7,6 +7,7 @@ import (
 
 type Raft struct {
     isLeader bool
+    leaderId int
 
     term int
     voteFor int
