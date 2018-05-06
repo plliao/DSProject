@@ -97,7 +97,7 @@ func (srv *Server) leaderInit() {
 
 func (srv *Server) leaderShutDown() {
     close(srv.commitChan)
-    srv.commandLogs = nil
+    //srv.commandLogs = nil
     srv.raft.isLeader = false
 }
 
@@ -461,7 +461,7 @@ func (srv *Server) followerHandler(index int) {
     client := RaftClient{address:srv.addressBook[index]}
     client.Init(srv.network, srv.addressBook[index])
     fmt.Print("Successfully Connect with " + srv.addressBook[index] + "\n")
-    //delay := 1
+    delay := 1
     for {
         if !srv.raft.isLeader {
             break
@@ -472,8 +472,8 @@ func (srv *Server) followerHandler(index int) {
         if srv.raft.index < nextIndex {
             command = ""
             nextIndex = srv.raft.index + 1
-            time.Sleep(srv.timeout)
-            //delay++
+            time.Sleep(time.Duration(delay) * srv.timeout)
+            delay++
         } else {
             command = srv.raft.logs[nextIndex]
         }

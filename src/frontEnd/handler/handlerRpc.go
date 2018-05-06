@@ -25,7 +25,7 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
             NotLeader := "Not Leader: "
             if errRPC != nil {
                 srv.TryNextAddress()
-                time.Sleep(1 * time.Second)
+                time.Sleep(500 * time.Millisecond)
             } else if ok == false && strings.HasPrefix(message, NotLeader) {
                 address = message[len(NotLeader):]
                 srv.SetConnectInfo(address, network)
@@ -35,7 +35,7 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
             }
         } else{
             srv.TryNextAddress()
-            time.Sleep(1 * time.Second)
+            time.Sleep(500 * time.Millisecond)
         }
     }
 }
