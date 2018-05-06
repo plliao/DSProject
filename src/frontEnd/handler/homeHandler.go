@@ -21,7 +21,7 @@ type User struct {
     Password string
     Articles []*cmd.Article
     token string
-    Others []Relationship 
+    Others []Relationship
 }
 
 func (user *User) Auth() template.HTML {
@@ -38,8 +38,8 @@ func (user *User) Auth() template.HTML {
 
 type ClientReply struct {
     Ok bool
-    Token string
     Error string
+    Token string
 }
 
 type LoginPage struct {
@@ -103,7 +103,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
             loginURLValues.Set("message", clientReply.Error)
             http.Redirect(w, r, "/login/?" + loginURLValues.Encode(), http.StatusFound)
             return
-        } 
+        }
     }
     err, reply := ClientGetMyContentRPC(user.token, srv)
     if(err == nil && reply.Ok){
