@@ -28,6 +28,7 @@ type AppendEntryArgs struct {
     PrevLogIndex int
     PrevLogTerm int
     Command string
+    CommandTerm int
     CommitIndex int
 }
 
@@ -60,21 +61,39 @@ func (raft *Raft) resetCommand(prevLogIndex int) {
     raft.index = len(raft.logs) - 1
 }
 
-func (raft *Raft) getLastIndexAndTerm() (int, int) {
-    lastLogIndex := raft.index
-    lastLogTerm := -1
-    if lastLogIndex >= 0 {
-        lastLogTerm = raft.logTerms[lastLogIndex]
+func (raft *Raft) contains(index int, term int) bool {
+    if index < 0 {
+        return true
     }
-    return lastLogIndex, lastLogTerm
+    return raft.index >= index && raft.logTerms[index] == term
+}
+
+func (raft *Raft) match(index int, term int, command string) bool {
+    if !raft.contains(index, term) {
+        return false
+    }
+    return raft.logs[index] == command
+}
+
+func (raft *Raft) getIndexAndTerm(index int) (int, int) {
+    if index < 0 {
+        return -1, -1
+    }
+    if index > raft.index {
+        return index, raft.term
+    }
+    return index, raft.logTerms[index]
+}
+
+func (raft *Raft) getLastIndexAndTerm() (int, int) {
+    return raft.getIndexAndTerm(raft.index)
 }
 
 func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) error {
     raft.heartBeatChan <- time.Now()
     reply.Term = raft.term
 
-    if args.Term < raft.term || args.PrevLogIndex >= len(raft.logs) ||
-            args.PrevLogIndex > 0 && raft.logTerms[args.PrevLogIndex] != args.PrevLogTerm {
+    if args.Term < raft.term || !raft.contains(args.PrevLogIndex, args.PrevLogTerm) {
         reply.Success = false
         return nil
     }
@@ -85,15 +104,17 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
         raft.toFollowerChan <- args.Term
     }
 
-    if len(raft.logs) - 1 == args.PrevLogIndex{
+    currentIndex := args.PrevLogIndex + 1
+
+    if len(raft.logs) == currentIndex {
         if args.Command != "" {
             fmt.Print("Append command " + args.Command + "\n")
-            raft.appendCommand(args.Command, args.Term)
+            raft.appendCommand(args.Command, args.CommandTerm)
         } else {
             fmt.Print("HeartBeat\n")
         }
-    } else if len(raft.logs) > args.PrevLogIndex + 1 {
-        if raft.logs[args.PrevLogIndex + 1] != args.Command {
+    } else {
+        if !raft.match(currentIndex, args.CommandTerm, args.Command) {
             raft.resetCommand(args.PrevLogIndex)
             reply.Success = false
             return nil
@@ -102,8 +123,8 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
 
     if args.CommitIndex > raft.commitIndex {
         newCommitIndex := args.CommitIndex
-        if newCommitIndex > len(raft.logs) - 1 {
-            newCommitIndex = len(raft.logs) - 1
+        if newCommitIndex > raft.index {
+            newCommitIndex = raft.index
         }
         for i:= raft.commitIndex + 1; i<= newCommitIndex; i++{
             raft.toExecChan <- i
@@ -115,14 +136,13 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
 }
 
 func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) error {
-    fmt.Printf("Current term %v, voteFor %v\n", raft.term, raft.voteFor)
-    fmt.Printf("Vote Request %v\n", args)
-    lastLogIndex, lastLogTerm := raft.getLastIndexAndTerm()
+    reply.Term = raft.term
     if args.Term < raft.term {
         reply.VoteGranted = false
         return nil
     }
 
+    lastLogIndex, lastLogTerm := raft.getLastIndexAndTerm()
     if args.Term > raft.term {
         raft.voteFor = -1
         raft.toFollowerChan <- args.Term
@@ -131,7 +151,6 @@ func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) err
     if (raft.voteFor < 0 || raft.voteFor == args.CandidateId) &&
             lastLogIndex <= args.LastLogIndex && lastLogTerm <= args.LastLogTerm {
         reply.VoteGranted = true
-        reply.Term = raft.term
         raft.voteFor = args.CandidateId
     }
     return nil

@@ -29,13 +29,14 @@ func (client *RaftClient) InitOnce(network string, address string) error {
 
 func (client *RaftClient) AppendEntry(
         term int, leaderId int, prevLogIndex int, prevLogTerm int,
-        command string, commitIndex int) (AppendEntryReply, error) {
+        command string, commandTerm int, commitIndex int) (AppendEntryReply, error) {
     args := AppendEntryArgs{
         Term:term,
         LeaderId:leaderId,
         PrevLogIndex:prevLogIndex,
         PrevLogTerm:prevLogTerm,
         Command:command,
+        CommandTerm:commandTerm,
         CommitIndex:commitIndex,
     }
     reply := AppendEntryReply{}

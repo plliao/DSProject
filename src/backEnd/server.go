@@ -7,7 +7,7 @@ import (
     "log"
     "regexp"
     "errors"
-    "crypto/rand"
+    //"crypto/rand"
     mrand "math/rand"
     "fmt"
     "reflect"
@@ -82,7 +82,9 @@ func (srv *Server) RegisterAddress(address string, port string) {
 
 func (srv *Server) leaderInit() {
     srv.raft.isLeader = true
-    srv.nextIndexs = make([]int, len(srv.addressBook))
+    for i, _ := range srv.addressBook {
+        srv.nextIndexs[i] = len(srv.raft.logs)
+    }
     srv.commitChan = make(chan int, 100)
     srv.commandLogs = make(map[int]reflect.Value)
     go srv.commitHandler()
@@ -94,9 +96,8 @@ func (srv *Server) leaderInit() {
 }
 
 func (srv *Server) leaderShutDown() {
-    srv.nextIndexs = nil
-    srv.commandLogs = nil
     close(srv.commitChan)
+    srv.commandLogs = nil
     srv.raft.isLeader = false
 }
 
@@ -149,9 +150,10 @@ func (srv *Server) validateAuth(token string) bool {
 
 func (srv *Server) generateUserToken(user *User) {
     srv.deleteUserToken(user)
-    token := make([]byte, 6)
-    rand.Read(token)
-    user.token = fmt.Sprintf("%x", token)
+    //token := make([]byte, 6)
+    //rand.Read(token)
+    //user.token = fmt.Sprintf("%x", token)
+    user.token = user.Username + user.Password
     srv.tokens[user.token] = user
 }
 
@@ -368,6 +370,7 @@ func (srv *Server) commitHandler() {
 
 func (srv *Server) updateLastBeat() {
     for beatTime := range srv.raft.heartBeatChan {
+        fmt.Printf("logTerms: %v\n", srv.raft.logTerms)
         srv.lastBeatTime = beatTime
     }
 }
@@ -476,11 +479,8 @@ func (srv *Server) followerHandler(index int) {
             command = srv.raft.logs[nextIndex]
         }
 
-        preLogIndex := nextIndex - 1
-        preLogTerm := -1
-        if preLogIndex > 0 {
-            preLogTerm = srv.raft.logTerms[preLogIndex]
-        }
+        _, commandTerm := srv.raft.getIndexAndTerm(nextIndex)
+        preLogIndex, preLogTerm := srv.raft.getIndexAndTerm(nextIndex - 1)
 
         reply, err := client.AppendEntry(
             srv.raft.term,
@@ -488,29 +488,30 @@ func (srv *Server) followerHandler(index int) {
             preLogIndex,
             preLogTerm,
             command,
+            commandTerm,
             srv.raft.commitIndex,
         )
+        fmt.Printf("Replicate to index:%v, term:%v, prevLogIndex:%v, preLogTerm:%v, command:%v, commit:%v\n", index, srv.raft.term, preLogIndex, preLogTerm, command, srv.raft.commitIndex)
 
         if err != nil {
             fmt.Print(err)
             client.Init(srv.network, srv.addressBook[index])
-            srv.nextIndexs[index] = 0
             continue
         }
         if reply.Term > srv.raft.term {
             srv.raft.toFollowerChan <- reply.Term
             break
         }
-        if command != "" {
-            if reply.Success {
-                srv.commitChan <- nextIndex
+        if reply.Success {
+            if command != "" {
                 srv.nextIndexs[index]++
-            } else {
-                srv.nextIndexs[index]--
-                if srv.nextIndexs[index] < 0 {
-                    srv.nextIndexs[index] = 0
+                if commandTerm == srv.raft.term {
+                    srv.commitChan <- nextIndex
                 }
             }
+        } else {
+            fmt.Printf("Replicate fail with node %v and index %v, nextIndexs %v\n", index, nextIndex, srv.nextIndexs)
+            srv.nextIndexs[index]--
         }
     }
 }
@@ -562,6 +563,7 @@ func (srv *Server) Start() {
     address := srv.addressBook[srv.id]
     port := strings.Split(address, ":")[1]
 
+    srv.followerInit()
     rpc.Register(srv.service)
     rpc.Register(srv.raft)
     rpc.HandleHTTP()
@@ -570,7 +572,6 @@ func (srv *Server) Start() {
         log.Fatal("listen error:", e)
     }
     fmt.Print("BackEnd serving on " + address + "\n")
-    srv.followerInit()
     http.Serve(l, nil)
 }
 
