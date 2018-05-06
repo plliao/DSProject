@@ -111,7 +111,7 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
             fmt.Print("Append command " + args.Command + "\n")
             raft.appendCommand(args.Command, args.CommandTerm)
         } else {
-            fmt.Print("HeartBeat\n")
+            fmt.Print(".")
         }
     } else {
         if !raft.match(currentIndex, args.CommandTerm, args.Command) {
