@@ -29,6 +29,7 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
                 case errRPC = <-errRPCChan:
                     fmt.Print("Get reply.\n")
                 case <-time.After(2000 * time.Millisecond):
+                    srv.TryNextAddress()
                     continue
             }
             ok := reply.Elem().Field(0).Interface().(bool)
@@ -46,7 +47,7 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
             }
         } else{
             srv.TryNextAddress()
-            time.Sleep(1 * time.Second)
+            time.Sleep(500 * time.Millisecond)
         }
     }
 }
