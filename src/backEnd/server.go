@@ -102,12 +102,12 @@ func (srv *Server) leaderShutDown() {
 }
 
 func (srv *Server) followerInit() {
-    srv.toExecChan = make(chan int, 100)
     srv.heartBeatChan = make(chan time.Time, 100)
-    srv.raft.toExecChan = srv.toExecChan
+    srv.toExecChan = make(chan int, 100)
     srv.raft.heartBeatChan = srv.heartBeatChan
-    go srv.execHandler()
+    srv.raft.toExecChan = srv.toExecChan
     go srv.heartBeatHandler()
+    go srv.execHandler()
 }
 
 func (srv *Server) followerShutDown() {
@@ -359,9 +359,13 @@ func (srv *Server) commitHandler() {
         if indexCount[index] > srv.getMajority() {
             for commitIndex := srv.raft.commitIndex + 1; commitIndex <= index; commitIndex++ {
                 fmt.Printf("Exec %v\n", srv.commandLogs)
-                delete(indexCount, commitIndex)
-                srv.exec(srv.commandLogs[commitIndex])
-                delete(srv.commandLogs, commitIndex)
+                if cmd, ok := srv.commandLogs[commitIndex]; ok {
+                    delete(indexCount, commitIndex)
+                    srv.exec(cmd)
+                    delete(srv.commandLogs, commitIndex)
+                } else {
+                    srv.followerExec(commitIndex)
+                }
                 srv.raft.commitIndex = commitIndex
             }
         }
@@ -445,14 +449,18 @@ func (srv *Server) heartBeatHandler(){
     }
 }
 
-func (srv *Server) execHandler() {
+func (srv *Server) followerExec(commitIndex int) {
     srvValue := reflect.ValueOf(srv)
+    encodedCmd := srv.raft.logs[commitIndex]
+    funcName, parameters := srv.cmdFactory.Decode(encodedCmd)
+    f := srvValue.MethodByName(funcName)
+    f.Call(parameters)
+    fmt.Print("Replicate execute command " + funcName + "\n")
+}
+
+func (srv *Server) execHandler() {
     for execID :=  range srv.raft.toExecChan {
-        encodedCmd := srv.raft.logs[execID]
-        funcName, parameters := srv.cmdFactory.Decode(encodedCmd)
-        f := srvValue.MethodByName(funcName)
-        f.Call(parameters)
-        fmt.Print("Replicate execute command " + funcName + "\n")
+        srv.followerExec(execID)
     }
 }
 
