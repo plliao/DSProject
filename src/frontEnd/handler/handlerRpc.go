@@ -6,47 +6,36 @@ import (
     "backEnd/cmd"
     "net/rpc"
     "frontEnd/server"
-    //"strings"
+    "strings"
     //"html/template"
     //"log"
-    //"fmt"
     "reflect"
+    "time"
 )
 
 func ClientCall(service string, args interface{}, replyType reflect.Type, srv *server.Server) (error, interface{}){
-    i := 0
-    addressBook, network := srv.GetConnectInfo()
-    address := addressBook[i]
     for {
+        address, network := srv.GetConnectInfo()
         client, errDial := rpc.DialHTTP(network, address)
-        if(i >= len(addressBook)){
-            i = 0
-        }
-        if(errDial == nil){
+        if errDial == nil {
             reply := reflect.New(replyType)
             errRPC := client.Call(service, args, reply.Interface())
             ok := reply.Elem().Field(0).Interface().(bool)
             message := reply.Elem().Field(1).Interface().(string)
-            NotLeader := ""
-            //fmt.Print(len(message))
-            if len(message) > 13{
-                NotLeader = message[:11]
-            //    fmt.Print("message[:11]", NotLeader)
-            //    fmt.Print("\nmessage[:12]", message[:12])
-            //    fmt.Print("\nmessage[12:]", message[12:])
-            }
+            NotLeader := "Not Leader: "
             if errRPC != nil {
-                address = addressBook[i]
-                i++
-            } else if ok == false &&  NotLeader == "Not Leader: " {
-                address = message[12:]
+                srv.TryNextAddress()
+                time.Sleep(1 * time.Second)
+            } else if ok == false && strings.HasPrefix(message, NotLeader) {
+                address = message[len(NotLeader):]
+                srv.SetConnectInfo(address, network)
             } else {
                 dupReply := reply.Interface()
                 return errRPC, dupReply//reply.Interface()
             }
         } else{
-            address = addressBook[i]
-            i++
+            srv.TryNextAddress()
+            time.Sleep(1 * time.Second)
         }
     }
 }

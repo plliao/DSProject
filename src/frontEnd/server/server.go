@@ -15,11 +15,23 @@ type Server struct {
     handlers map[string]http.HandlerFunc // api -> handler
     templates *template.Template
     serverAddress []string
+    leaderId int
+    leaderAddress string
     network string
 }
 
-func (srv *Server)GetConnectInfo() ([]string, string){
-    return srv.serverAddress, srv.network
+func (srv *Server) GetConnectInfo() (string, string) {
+    return srv.leaderAddress, srv.network
+}
+
+func (srv *Server) SetConnectInfo(address string, network string) {
+    srv.leaderAddress = address
+    srv.network = network
+}
+
+func (srv *Server) TryNextAddress() {
+    srv.leaderId = (srv.leaderId + 1) % len(srv.serverAddress)
+    srv.leaderAddress = srv.serverAddress[srv.leaderId]
 }
 
 func (srv *Server)ClientConnect() (*rpc.Client, error){
@@ -45,6 +57,8 @@ func (srv *Server) InitialDial(network string, filePath string){
     for scanner.Scan() {
         srv.serverAddress = append(srv.serverAddress, scanner.Text())
     }
+    srv.leaderId = 0
+    srv.leaderAddress = srv.serverAddress[srv.leaderId]
 }
 
 func (srv *Server) Init() {

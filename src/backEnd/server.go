@@ -370,7 +370,6 @@ func (srv *Server) commitHandler() {
 
 func (srv *Server) updateLastBeat() {
     for beatTime := range srv.raft.heartBeatChan {
-        fmt.Printf("logTerms: %v\n", srv.raft.logTerms)
         srv.lastBeatTime = beatTime
     }
 }
@@ -491,7 +490,7 @@ func (srv *Server) followerHandler(index int) {
             commandTerm,
             srv.raft.commitIndex,
         )
-        fmt.Printf("Replicate to index:%v, term:%v, prevLogIndex:%v, preLogTerm:%v, command:%v, commit:%v\n", index, srv.raft.term, preLogIndex, preLogTerm, command, srv.raft.commitIndex)
+        //fmt.Printf("Replicate to index:%v, term:%v, prevLogIndex:%v, preLogTerm:%v, command:%v, commit:%v\n", index, srv.raft.term, preLogIndex, preLogTerm, command, srv.raft.commitIndex)
 
         if err != nil {
             fmt.Print(err)
@@ -510,7 +509,6 @@ func (srv *Server) followerHandler(index int) {
                 }
             }
         } else {
-            fmt.Printf("Replicate fail with node %v and index %v, nextIndexs %v\n", index, nextIndex, srv.nextIndexs)
             srv.nextIndexs[index]--
         }
     }
