@@ -24,7 +24,7 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
             var errRPC error
             go func(){
                 errRPCChan <- client.Call(service, args, reply.Interface())
-            }
+            }()
             select {
                 case errRPC = <-errRPCChan:
                     fmt.Print("Get reply.\n")
