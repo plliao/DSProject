@@ -18,6 +18,10 @@ type Server struct {
     network string
 }
 
+func (srv *Server)GetConnectInfo() ([]string, string){
+    return srv.serverAddress, srv.network
+}
+
 func (srv *Server)ClientConnect() (*rpc.Client, error){
     var err error
     var client *rpc.Client

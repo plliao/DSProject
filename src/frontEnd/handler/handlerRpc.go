@@ -5,86 +5,107 @@ import (
     //"net/url"
     "backEnd/cmd"
     "net/rpc"
-    //"errors"
+    "frontEnd/server"
     //"strings"
     //"html/template"
     //"log"
+    "fmt"
+    "reflect"
 )
 
-func ClientCall(client *rpc.Client, service string, args interface, reply interface) (error, interface) {
-    err := client.Call(service, args, &reply)
-    if reply.Ok == false && reply.Error[:12] == "Not Leader: " {
-        address := reply.Error[12:]
+func ClientCall(service string, args interface{}, replyType reflect.Type, srv *server.Server) (error, interface{}){
+    i := 0
+    addressBook, network := srv.GetConnectInfo()
+    address := addressBook[i]
+    for {
+        client, errDial := rpc.DialHTTP(network, address)
+        if(i >= len(addressBook)){
+            i = 0
+        }
+        if(errDial == nil){
+            reply := reflect.New(replyType)
+            errRPC := client.Call(service, args, reply.Interface())
+            ok := reply.Elem().Field(0).Interface().(bool)
+            message := reply.Elem().Field(1).Interface().(string)
+            NotLeader := ""
+            if len(message) > 13{
+                NotLeader = message[:12]
+            }
+            fmt.Print("**********Message:\n", message)
+            if errRPC != nil {
+                address = addressBook[i]
+                i++
+            } else if ok == false &&  NotLeader == "Not Leader: " {
+                address = message[12:]
+            } else {
+                return errRPC, reply.Interface()
+            }
+        } else{
+            address = addressBook[i]
+            i++
+        }
     }
 }
 
-func ClientPostRPC(token string, post string, client *rpc.Client) (error, cmd.PostReply){
+func ClientPostRPC(token string, post string, srv *server.Server) (error, cmd.PostReply){
 	args := cmd.PostArgs { Token:token, Content:post }
-	var reply cmd.PostReply
-    err := client.Call("Service." + "Post", args, &reply)
-    return err, reply
+    var reply cmd.PostReply
+    err, replyInf := ClientCall("Service." + "Post", args, reflect.TypeOf(reply), srv)
+    return err, replyInf.(cmd.PostReply)
 }
 
-func ClientLogoutRPC(token string, client *rpc.Client) (error, cmd.UserLogoutReply){
+func ClientLogoutRPC(token string, srv *server.Server) (error, cmd.UserLogoutReply){
 	args := cmd.UserLogoutArgs{ Token:token }
     var reply cmd.UserLogoutReply
-	err := client.Call("Service." + "UserLogout", args, &reply)
-	return err, reply
+	err, replyInf := ClientCall("Service." + "UserLogout", args, reflect.TypeOf(reply), srv)
+    return err, replyInf.(cmd.UserLogoutReply)
 }
 
-func ClientRegisterUserRPC(username string, password string, client *rpc.Client) (error, ClientReply){
+func ClientRegisterUserRPC(username string, password string, srv *server.Server) (error, ClientReply){
 	args := cmd.RegisterUserArgs{ Username:username, Password:password }
-    var reply cmd.RegisterUserReply
-    err := client.Call("Service." + "RegisterUser", args, &reply)
-    return err, ClientReply{ Ok:reply.Ok, Token:reply.Token, Error:reply.Error}
+    var reply ClientReply
+    err, replyInf := ClientCall("Service." + "RegisterUser", args, reflect.TypeOf(reply), srv)
+    return err, *(replyInf.(*ClientReply))
 }
 
-func ClientUserLoginRPC(username string, password string, client *rpc.Client) (error, ClientReply){
+func ClientUserLoginRPC(username string, password string, srv *server.Server) (error, ClientReply){
 	args := cmd.UserLoginArgs{ Username:username, Password:password }
-    var reply cmd.UserLoginReply
-    err := client.Call("Service." + "UserLogin", args, &reply)
-    return err, ClientReply{ Ok:reply.Ok, Token:reply.Token, Error:reply.Error}
+    var reply ClientReply
+    err, replyInf := ClientCall("Service." + "UserLogin", args, reflect.TypeOf(reply), srv)
+    return err, replyInf.(ClientReply)
 }
 
-func ClientGetMyContentRPC(token string, client *rpc.Client) (error, cmd.GetMyContentReply){
+func ClientGetMyContentRPC(token string, srv *server.Server) (error, cmd.GetMyContentReply){
 	args := cmd.GetMyContentArgs{ Token:token }
     var reply cmd.GetMyContentReply
-    err := client.Call("Service." + "GetMyContent", args, &reply)
-    return err, reply
+    err, replyInf := ClientCall("Service." + "GetMyContent", args, reflect.TypeOf(reply), srv)
+    return err, replyInf.(cmd.GetMyContentReply)
 }
 
-func ClientGetFollowerRPC(token string, client *rpc.Client) (string, cmd.GetFollowerReply){
+func ClientGetFollowerRPC(token string, srv *server.Server) (error, cmd.GetFollowerReply){
 	args := cmd.GetFollowerArgs{ Token:token }
     var reply cmd.GetFollowerReply
-    err := client.Call("Service." + "GetFollower", args, &reply)
-    errmsg := ""
-    if(err != nil){
-    	errmsg = "Authentication failed."
-    }
-    return errmsg, reply
+    err, replyInf := ClientCall("Service." + "GetFollower", args, reflect.TypeOf(reply), srv)
+    return err, replyInf.(cmd.GetFollowerReply)
 }
 
-func ClientDeleteUserRPC(token string, client *rpc.Client) (string, cmd.DeleteUserReply){
+func ClientDeleteUserRPC(token string, srv *server.Server) (error, cmd.DeleteUserReply){
 	args := cmd.DeleteUserArgs{ Token:token }
     var reply cmd.DeleteUserReply
-    err := client.Call("Service." + "DeleteUser", args, &reply)
-    errmsg := ""
-    if(err != nil || !reply.Ok){
-        errmsg = "Delete Failed. Please log in again."
-    }
-    return errmsg, reply
+    err, replyInf := ClientCall("Service." + "DeleteUser", args, reflect.TypeOf(reply), srv)
+    return err, replyInf.(cmd.DeleteUserReply)
 }
 
-func ClientUnFollowRPC(token string, target string, client *rpc.Client) (error, cmd.UnFollowReply){
+func ClientUnFollowRPC(token string, target string, srv *server.Server) (error, cmd.UnFollowReply){
 	args := cmd.UnFollowArgs{ Token:token, Username:target}
     var reply cmd.UnFollowReply
-    err := client.Call("Service." + "UnFollow", args, &reply)
-    return err, reply
+    err, replyInf := ClientCall("Service." + "UnFollow", args, reflect.TypeOf(reply), srv)
+    return err, replyInf.(cmd.UnFollowReply)
 }
 
-func ClientFollowRPC(token string, target string, client *rpc.Client) (error, cmd.FollowReply){
+func ClientFollowRPC(token string, target string, srv *server.Server) (error, cmd.FollowReply){
 	args := cmd.FollowArgs{ Token:token, Username:target}
     var reply cmd.FollowReply
-    err := client.Call("Service." + "Follow", args, &reply)
-    return err, reply
+    err, replyInf := ClientCall("Service." + "Follow", args, reflect.TypeOf(reply), srv)
+    return err, replyInf.(cmd.FollowReply)
 }

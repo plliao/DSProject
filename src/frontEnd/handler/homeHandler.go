@@ -59,14 +59,14 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
     post := r.FormValue("article")
     logout := r.FormValue("logout")
 
-    client, dialerr := srv.ClientConnect()
+    /*client, dialerr := srv.ClientConnect()
     if(dialerr != nil){
         log.Fatal("LoginRPC:", dialerr)
-    }
+    }*/
     user := &User{ Username:username , token:token}
     if(user.token != ""){
         if (post != "") {
-            err, reply := ClientPostRPC(user.token, post, client)
+            err, reply := ClientPostRPC(user.token, post, srv)
             if(err != nil ){
                 log.Fatal("PostRPC:", err)
             }
@@ -76,7 +76,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
             }
         }
         if (logout != "") {
-            err, reply := ClientLogoutRPC(user.token, client)
+            err, reply := ClientLogoutRPC(user.token, srv)
             if(err == nil && reply.Ok){
                 http.Redirect(w, r, "/login/", http.StatusFound)
                 return
@@ -89,9 +89,9 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
         var clientReply ClientReply
         var err error
         if(choose == "Sign up"){
-            err, clientReply = ClientRegisterUserRPC(username, password, client)
+            err, clientReply = ClientRegisterUserRPC(username, password, srv)
         } else if(choose == "Log in"){
-            err, clientReply = ClientUserLoginRPC(username, password, client)
+            err, clientReply = ClientUserLoginRPC(username, password, srv)
         }
         if(err == nil && clientReply.Ok){
             user.token = clientReply.Token
@@ -105,7 +105,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request, srv *server.Server) {
             return
         } 
     }
-    err, reply := ClientGetMyContentRPC(user.token, client)
+    err, reply := ClientGetMyContentRPC(user.token, srv)
     if(err == nil && reply.Ok){
         user.Articles = reply.Articles
     }
