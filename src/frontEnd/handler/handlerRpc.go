@@ -9,6 +9,7 @@ import (
     "strings"
     //"html/template"
     //"log"
+    "fmt"
     "reflect"
     "time"
 )
@@ -19,7 +20,17 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
         client, errDial := rpc.DialHTTP(network, address)
         if errDial == nil {
             reply := reflect.New(replyType)
-            errRPC := client.Call(service, args, reply.Interface())
+            errRPCChan := make(chan error, 1)
+            var errRPC error
+            go func(){
+                errRPCChan <- client.Call(service, args, reply.Interface())
+            }()
+            select {
+                case errRPC = <-errRPCChan:
+                    fmt.Print("Get reply.\n")
+                case <-time.After(2000 * time.Millisecond):
+                    continue
+            }
             ok := reply.Elem().Field(0).Interface().(bool)
             message := reply.Elem().Field(1).Interface().(string)
             NotLeader := "Not Leader: "
