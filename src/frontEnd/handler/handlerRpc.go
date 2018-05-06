@@ -9,6 +9,7 @@ import (
     //"strings"
     //"html/template"
     //"log"
+    "fmt"
     "reflect"
 )
 
@@ -26,17 +27,22 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
             errRPC := client.Call(service, args, reply.Interface())
             ok := reply.Elem().Field(0).Interface().(bool)
             message := reply.Elem().Field(1).Interface().(string)
+            NotLeader := ""
+            if len(message) > 13{
+                NotLeader = message[:12]
+            }
+            fmt.Print("**********Message:\n", message)
             if errRPC != nil {
-                i++
                 address = addressBook[i]
-            } else if ok == false && message[:12] == "Not Leader: " {
+                i++
+            } else if ok == false &&  NotLeader == "Not Leader: " {
                 address = message[12:]
             } else {
                 return errRPC, reply.Interface()
             }
         } else{
-            i++
             address = addressBook[i]
+            i++
         }
     }
 }
@@ -59,7 +65,7 @@ func ClientRegisterUserRPC(username string, password string, srv *server.Server)
 	args := cmd.RegisterUserArgs{ Username:username, Password:password }
     var reply ClientReply
     err, replyInf := ClientCall("Service." + "RegisterUser", args, reflect.TypeOf(reply), srv)
-    return err, replyInf.(ClientReply)
+    return err, *(replyInf.(*ClientReply))
 }
 
 func ClientUserLoginRPC(username string, password string, srv *server.Server) (error, ClientReply){
