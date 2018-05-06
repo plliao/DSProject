@@ -56,7 +56,7 @@ func (raft *Raft) appendCommand(command string, term int) {
 }
 
 func (raft *Raft) resetCommand(prevLogIndex int) {
-    if raft.index >= prevLogIndex {
+    if prevLogIndex > 0 && raft.index >= prevLogIndex {
         raft.logs = raft.logs[:prevLogIndex]
         raft.logTerms = raft.logTerms[:prevLogIndex]
         raft.index = len(raft.logs) - 1
