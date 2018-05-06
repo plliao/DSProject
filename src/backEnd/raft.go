@@ -19,6 +19,7 @@ type Raft struct {
 
     toExecChan chan int
     heartBeatChan chan time.Time
+    toFollowerChan chan int
 }
 
 type AppendEntryArgs struct {
@@ -78,7 +79,11 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
         return nil
     }
 
-    raft.voteFor = -1
+    if raft.term < args.Term {
+        raft.voteFor = -1
+        raft.leaderId = args.LeaderId
+        raft.toFollowerChan <- args.Term
+    }
 
     if len(raft.logs) - 1 == args.PrevLogIndex{
         if args.Command != "" {
@@ -110,11 +115,21 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
 }
 
 func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) error {
+    fmt.Printf("Current term %v, voteFor %v\n", raft.term, raft.voteFor)
+    fmt.Printf("Vote Request %v\n", args)
     lastLogIndex, lastLogTerm := raft.getLastIndexAndTerm()
     if args.Term < raft.term {
         reply.VoteGranted = false
-    } else if ((raft.voteFor < 0 || raft.voteFor == args.CandidateId) &&
-            lastLogIndex <= args.LastLogIndex && lastLogTerm <= args.LastLogTerm) {
+        return nil
+    }
+
+    if args.Term > raft.term {
+        raft.voteFor = -1
+        raft.toFollowerChan <- args.Term
+    }
+
+    if (raft.voteFor < 0 || raft.voteFor == args.CandidateId) &&
+            lastLogIndex <= args.LastLogIndex && lastLogTerm <= args.LastLogTerm {
         reply.VoteGranted = true
         reply.Term = raft.term
         raft.voteFor = args.CandidateId

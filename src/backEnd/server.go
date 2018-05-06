@@ -8,7 +8,7 @@ import (
     "regexp"
     "errors"
     "crypto/rand"
-    //mrand "math/rand"
+    mrand "math/rand"
     "fmt"
     "reflect"
     "backEnd/cmd"
@@ -22,7 +22,7 @@ type Server struct {
     tokens map[string]*User
     commands chan reflect.Value
     cmdFactory *cmd.CommandFactory
-    commandLogs []reflect.Value
+    commandLogs map[int]reflect.Value
 
     rwLock *sync.RWMutex
     service *Service
@@ -69,12 +69,6 @@ func (srv *Server) Init(id int) {
     srv.validPassword, _ = regexp.Compile("^[a-zA-Z0-9]{4,10}$")
 
     srv.id = id
-    srv.raft = &Raft{
-        isLeader:false,
-        term:0,
-        index:-1,
-        commitIndex:-1,
-    }
     srv.network = "tcp"
     srv.addressBook = make([]string, 0)
     srv.timeout = 1000 * time.Millisecond
@@ -90,7 +84,7 @@ func (srv *Server) leaderInit() {
     srv.raft.isLeader = true
     srv.nextIndexs = make([]int, len(srv.addressBook))
     srv.commitChan = make(chan int, 100)
-    srv.commandLogs = make([]reflect.Value, 0)
+    srv.commandLogs = make(map[int]reflect.Value)
     go srv.commitHandler()
     for i, _ := range srv.addressBook {
         if i != srv.id {
@@ -340,7 +334,11 @@ func (srv *Server) replyNotLeader(cmdValue reflect.Value) {
     replyType := cmdValue.Field(1).Type().Elem().Elem()
     reply := reflect.New(replyType)
     reply.Elem().Field(0).Set(reflect.ValueOf(false))
-    reply.Elem().Field(1).Set(reflect.ValueOf(srv.messages.NotLeader + srv.addressBook[srv.raft.leaderId]))
+    leaderAddress := ""
+    if srv.raft.leaderId >= 0 {
+        leaderAddress = srv.addressBook[srv.raft.leaderId]
+    }
+    reply.Elem().Field(1).Set(reflect.ValueOf(srv.messages.NotLeader + leaderAddress))
     cmdValue.Field(1).Send(reply)
 }
 
@@ -358,8 +356,10 @@ func (srv *Server) commitHandler() {
 
         if indexCount[index] > srv.getMajority() {
             for commitIndex := srv.raft.commitIndex + 1; commitIndex <= index; commitIndex++ {
+                fmt.Printf("Exec %v\n", srv.commandLogs)
                 delete(indexCount, commitIndex)
                 srv.exec(srv.commandLogs[commitIndex])
+                delete(srv.commandLogs, commitIndex)
                 srv.raft.commitIndex = commitIndex
             }
         }
@@ -376,27 +376,41 @@ func (srv *Server) startVote() bool {
     count := 1
     srv.raft.term = srv.raft.term + 1
     srv.raft.voteFor = srv.id
+    countChan := make(chan int, len(srv.addressBook))
     for index, _ := range srv.addressBook {
         if srv.id == index {
             continue
         }
-        client := RaftClient{}
-        err := client.InitOnce(srv.network, srv.addressBook[index])
-        if err != nil {
-            continue
+        go func(index int) {
+            client := RaftClient{}
+            err := client.InitOnce(srv.network, srv.addressBook[index])
+            if err != nil {
+                countChan <- 0
+                return
+            }
+            lastLogIndex, lastLogTerm := srv.raft.getLastIndexAndTerm()
+            reply, err := client.RequestVote(
+                srv.raft.term,
+                srv.id,
+                lastLogIndex,
+                lastLogTerm)
+            if err == nil && reply.VoteGranted {
+                countChan <- 1
+            } else {
+                countChan <- 0
+            }
+        }(index)
+    }
+    times := 1
+    for result := range countChan {
+        times++
+        count += result
+        if count > srv.getMajority() || times == len(srv.addressBook) {
+            break
         }
-        lastLogIndex, lastLogTerm := srv.raft.getLastIndexAndTerm()
-        reply, err := client.RequestVote(
-            srv.raft.term,
-            srv.id,
-            lastLogIndex,
-            lastLogTerm)
-        if err == nil && reply.VoteGranted {
-            count++
-        }
-        if count > srv.getMajority() {
-            return true
-        }
+    }
+    if count > srv.getMajority() {
+        return true
     }
     return false
 }
@@ -405,8 +419,8 @@ func (srv *Server) heartBeatHandler(){
     go srv.updateLastBeat()
     for {
         time.Sleep(srv.timeout)
-        //randomTimeout := time.Duration(mrand.Intn(5)) * srv.timeout
-        if time.Now().Sub(srv.lastBeatTime) > 10 * srv.timeout {
+        randomTimeout := time.Duration(mrand.Intn(3) + 2) * srv.timeout
+        if time.Now().Sub(srv.lastBeatTime) > randomTimeout {
             srv.lastBeatTime = time.Now()
             fmt.Print("Leader timeout\n")
             electionTimer := 10 * srv.timeout
@@ -445,6 +459,7 @@ func (srv *Server) followerHandler(index int) {
     client := RaftClient{address:srv.addressBook[index]}
     client.Init(srv.network, srv.addressBook[index])
     fmt.Print("Successfully Connect with " + srv.addressBook[index] + "\n")
+    //delay := 1
     for {
         if !srv.raft.isLeader {
             break
@@ -456,6 +471,7 @@ func (srv *Server) followerHandler(index int) {
             command = ""
             nextIndex = srv.raft.index + 1
             time.Sleep(srv.timeout)
+            //delay++
         } else {
             command = srv.raft.logs[nextIndex]
         }
@@ -478,16 +494,11 @@ func (srv *Server) followerHandler(index int) {
         if err != nil {
             fmt.Print(err)
             client.Init(srv.network, srv.addressBook[index])
+            srv.nextIndexs[index] = 0
             continue
         }
         if reply.Term > srv.raft.term {
-            srv.rwLock.Lock()
-            defer srv.rwLock.Unlock()
-            if srv.raft.isLeader {
-                srv.raft.term = reply.Term
-                srv.leaderShutDown()
-                srv.followerInit()
-            }
+            srv.raft.toFollowerChan <- reply.Term
             break
         }
         if command != "" {
@@ -504,6 +515,21 @@ func (srv *Server) followerHandler(index int) {
     }
 }
 
+func (srv *Server) toFollowerHandler() {
+    for term := range srv.raft.toFollowerChan {
+        if srv.raft.term >= term {
+            continue
+        }
+        srv.rwLock.Lock()
+        srv.raft.term = term
+        if srv.raft.isLeader {
+            srv.leaderShutDown()
+            srv.followerInit()
+        }
+        srv.rwLock.Unlock()
+    }
+}
+
 func (srv *Server) runCommands() {
     for cmd := range srv.commands {
         if !srv.raft.isLeader {
@@ -514,8 +540,8 @@ func (srv *Server) runCommands() {
             go srv.exec(cmd)
         } else {
             encodedCmd := srv.cmdFactory.Encode(cmd)
-            srv.commandLogs = append(srv.commandLogs, cmd)
             srv.raft.appendCommand(encodedCmd, srv.raft.term)
+            srv.commandLogs[srv.raft.index] = cmd
         }
     }
 }
@@ -523,6 +549,16 @@ func (srv *Server) runCommands() {
 func (srv *Server) Start() {
     go srv.runCommands()
 
+    srv.raft = &Raft{
+        isLeader:false,
+        leaderId:-1,
+        term:0,
+        voteFor:-1,
+        index:-1,
+        commitIndex:-1,
+        toFollowerChan:make(chan int, len(srv.addressBook)),
+    }
+    go srv.toFollowerHandler()
     address := srv.addressBook[srv.id]
     port := strings.Split(address, ":")[1]
 
@@ -534,11 +570,7 @@ func (srv *Server) Start() {
         log.Fatal("listen error:", e)
     }
     fmt.Print("BackEnd serving on " + address + "\n")
-    if srv.id == 0 {
-        srv.leaderInit()
-    } else {
-        srv.followerInit()
-    }
+    srv.followerInit()
     http.Serve(l, nil)
 }
 
