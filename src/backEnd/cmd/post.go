@@ -1,6 +1,7 @@
 package cmd
 
 type PostArgs struct {
+    CommandId string
     Token string
     Content string
 }

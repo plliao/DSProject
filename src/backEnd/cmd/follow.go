@@ -1,6 +1,7 @@
 package cmd
 
 type FollowArgs struct {
+    CommandId string
     Token string
     Username string
 }

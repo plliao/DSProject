@@ -1,6 +1,7 @@
 package cmd
 
 type UserLogoutArgs struct {
+    CommandId string
     Token string
 }
 

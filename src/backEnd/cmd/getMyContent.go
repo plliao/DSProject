@@ -15,6 +15,7 @@ func (article *Article) GetTimeWithUnixDateFormat() string {
 }
 
 type GetMyContentArgs struct {
+    CommandId string
     Token string
 }
 

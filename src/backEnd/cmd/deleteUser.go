@@ -1,6 +1,7 @@
 package cmd
 
 type DeleteUserArgs struct {
+    CommandId string
     Token string
 }
 

@@ -1,6 +1,7 @@
 package cmd
 
 type UnFollowArgs struct {
+    CommandId string
     Token string
     Username string
 }

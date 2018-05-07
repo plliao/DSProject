@@ -38,6 +38,11 @@ func (factory *CommandFactory) Encode(value reflect.Value) string {
 }
 
 func (factory *CommandFactory) Decode(encoded string) (string, []reflect.Value) {
+    commandName, parameters := factory.decode(encoded)
+    return commandName, parameters[1:]
+}
+
+func (factory *CommandFactory) decode(encoded string) (string, []reflect.Value) {
     command := Command{}
     json.Unmarshal([]byte(encoded), &command)
 
@@ -51,4 +56,7 @@ func (factory *CommandFactory) Decode(encoded string) (string, []reflect.Value) 
     return command.Name, parameters
 }
 
-
+func (factory *CommandFactory) GetCommandId(encoded string) string {
+    _, parameters := factory.decode(encoded)
+    return parameters[0].Interface().(string)
+}
