@@ -14,6 +14,8 @@ import (
     "sync"
     "time"
     "strings"
+    "bufio"
+    "os"
 )
 
 type Server struct {
@@ -41,6 +43,8 @@ type Server struct {
     toExecChan chan int
     heartBeatChan chan time.Time
     lastBeatTime time.Time
+
+    logger *bufio.Writer
 }
 
 func (srv *Server) Init(id int) {
@@ -71,7 +75,7 @@ func (srv *Server) Init(id int) {
     srv.network = "tcp"
     srv.addressBook = make([]string, 0)
     srv.timeout = 1000 * time.Millisecond
-    srv.lastBeatTime = time.Now()
+    srv.heartBeatChan = make(chan time.Time, 100)
 }
 
 func (srv *Server) RegisterAddress(address string, port string) {
@@ -136,7 +140,7 @@ func (srv *Server) removeUser(user *User) {
 
 func (srv *Server) isReadOnly(funcName string) bool {
     switch (funcName) {
-        case "GetMyFollower", "GetMyContent":
+        case "GetFollower", "GetMyContent":
             return true
         default:
             return false
@@ -150,7 +154,7 @@ func (srv *Server) replyWithResults(cmdValue reflect.Value, results []reflect.Va
     for index, value := range results {
         reply.Elem().Field(index).Set(value)
     }
-    fmt.Printf("Command: %v, reply: %v\n", cmdValue.Type().Name(), reply)
+    fmt.Printf("\nReply Command: %v, reply: %v\n", cmdValue.Type().Name(), reply)
     cmdValue.Field(1).Send(reply)
 }
 
@@ -179,7 +183,6 @@ func (srv *Server) exec(encodedCmd string) []reflect.Value {
     }
 
     results := f.Call(parameters)
-    fmt.Printf("Execute command %v, %v\n", funcName, parameters)
     return results
 }
 
@@ -192,6 +195,10 @@ func (srv *Server) execAndReply(cmdValue reflect.Value) {
 func (srv *Server) execCommit(commitIndex int) []reflect.Value {
     if srv.raft.index >= commitIndex {
         encodedCmd := srv.raft.logs[commitIndex]
+        cmdTerm := srv.raft.logTerms[commitIndex]
+        log := fmt.Sprintf("CommitIndex %v, term %v: %v\n", commitIndex, cmdTerm, encodedCmd)
+        srv.logger.WriteString(log)
+        srv.logger.Flush()
         return srv.exec(encodedCmd)
     }
     return nil
@@ -199,14 +206,13 @@ func (srv *Server) execCommit(commitIndex int) []reflect.Value {
 
 func (srv *Server) toFollowerHandler() {
     for term := range srv.raft.toFollowerChan {
-        if srv.raft.term >= term {
-            continue
-        }
         srv.rwLock.Lock()
-        srv.raft.term = term
-        if srv.raft.isLeader {
-            srv.leaderShutDown()
-            srv.followerInit()
+        if srv.raft.term < term {
+            srv.raft.term = term
+            if srv.raft.isLeader {
+                srv.leaderShutDown()
+                srv.followerInit()
+            }
         }
         srv.rwLock.Unlock()
     }
@@ -215,7 +221,7 @@ func (srv *Server) toFollowerHandler() {
 func (srv *Server) appendCommand(cmdValue reflect.Value) {
     encodedCmd := srv.cmdFactory.Encode(cmdValue)
     commandId := srv.cmdFactory.GetCommandId(encodedCmd)
-    if _, ok := srv.commandLogs[commandId]; !ok {
+    if _, ok := srv.raft.commandLogs[commandId]; !ok {
         srv.commandLogs[commandId] = cmdValue
         srv.raft.appendCommand(encodedCmd, srv.raft.term)
     }
@@ -230,8 +236,20 @@ func (srv *Server) runCommands() {
         if srv.isReadOnly(cmd.Type().Name()) {
             go srv.execAndReply(cmd)
         } else {
-            srv.appendCommand(cmd)
+            srv.rwLock.RLock()
+            if srv.raft.isLeader {
+                srv.appendCommand(cmd)
+            } else {
+                srv.replyNotLeader(cmd)
+            }
+            srv.rwLock.RUnlock()
         }
+    }
+}
+
+func (srv *Server) updateLastBeat() {
+    for beatTime := range srv.raft.heartBeatChan {
+        srv.lastBeatTime = beatTime
     }
 }
 
@@ -246,10 +264,18 @@ func (srv *Server) Start() {
         index:-1,
         commitIndex:-1,
         toFollowerChan:make(chan int, len(srv.addressBook)),
+        heartBeatChan:srv.heartBeatChan,
+        cmdFactory:srv.cmdFactory,
+        commandLogs:make(map[string]int),
     }
+    go srv.updateLastBeat()
     go srv.toFollowerHandler()
     address := srv.addressBook[srv.id]
     port := strings.Split(address, ":")[1]
+
+    f, _ := os.Create("logs/" + address)
+    defer f.Close()
+    srv.logger = bufio.NewWriter(f)
 
     srv.followerInit()
     rpc.Register(srv.service)

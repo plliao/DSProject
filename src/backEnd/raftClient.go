@@ -16,7 +16,7 @@ func (client *RaftClient) Init(network string, address string) {
     err := client.InitOnce(network, address)
     for ; err != nil; {
         time.Sleep(1000 * time.Millisecond)
-        fmt.Print("Attempt to Connect with " + address + "\n")
+        //fmt.Print("Attempt to Connect with " + address + "\n")
         err = client.InitOnce(network, address)
     }
 }

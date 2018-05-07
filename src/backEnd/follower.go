@@ -7,30 +7,23 @@ import (
 )
 
 func (srv *Server) followerInit() {
-    srv.heartBeatChan = make(chan time.Time, 100)
     srv.toExecChan = make(chan int, 100)
-    srv.raft.heartBeatChan = srv.heartBeatChan
     srv.raft.toExecChan = srv.toExecChan
+    srv.lastBeatTime = time.Now()
     go srv.heartBeatHandler()
     go srv.execHandler()
 }
 
 func (srv *Server) followerShutDown() {
-    srv.raft.toExecChan = nil
-    srv.raft.heartBeatChan = nil
     close(srv.toExecChan)
-    close(srv.heartBeatChan)
-}
-
-func (srv *Server) updateLastBeat() {
-    for beatTime := range srv.raft.heartBeatChan {
-        srv.lastBeatTime = beatTime
-    }
+    srv.toExecChan = nil
+    srv.raft.toExecChan = nil
 }
 
 func (srv *Server) startVote() bool {
     count := 1
     srv.raft.term = srv.raft.term + 1
+    fmt.Printf("\nTimeout!! Start new term %v\n", srv.raft.term)
     srv.raft.voteFor = srv.id
     countChan := make(chan int, len(srv.addressBook))
     for index, _ := range srv.addressBook {
@@ -72,13 +65,10 @@ func (srv *Server) startVote() bool {
 }
 
 func (srv *Server) heartBeatHandler(){
-    go srv.updateLastBeat()
     for {
         time.Sleep(srv.timeout)
-        randomTimeout := time.Duration(mrand.Intn(3) + 2) * srv.timeout
+        randomTimeout := time.Duration(mrand.Intn(5) + 2) * srv.timeout
         if time.Now().Sub(srv.lastBeatTime) > randomTimeout {
-            srv.lastBeatTime = time.Now()
-            fmt.Print("Leader timeout\n")
             electionTimer := 10 * srv.timeout
             startVoteChan := make(chan bool, 1)
             go func(){
@@ -88,12 +78,15 @@ func (srv *Server) heartBeatHandler(){
                 case voteRes := <-startVoteChan:
                     fmt.Printf("Election result: %v\n", voteRes)
                     if voteRes {
+                        srv.rwLock.Lock()
+                        defer srv.rwLock.Unlock()
                         srv.followerShutDown()
                         srv.leaderInit()
                         return
                     }
                 case <-time.After(electionTimer):
-                    fmt.Println("election timeout")
+                    srv.lastBeatTime = time.Now()
+                    fmt.Println("election timeout\n")
             }
         }
     }
