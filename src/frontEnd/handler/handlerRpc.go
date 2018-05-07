@@ -21,7 +21,7 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
     ID := fmt.Sprintf("%x", token)
 
     stype := reflect.ValueOf(args)
-    stype.Elem().FieldByName("CommandID").SetString(ID)
+    stype.Elem().FieldByName("CommandId").SetString(ID)
 
     for {
         address, network := srv.GetConnectInfo()
