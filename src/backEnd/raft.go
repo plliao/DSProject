@@ -3,6 +3,7 @@ package backEnd
 import (
     "fmt"
     "time"
+    "backEnd/cmd"
 )
 
 type Raft struct {
@@ -20,6 +21,9 @@ type Raft struct {
     toExecChan chan int
     heartBeatChan chan time.Time
     toFollowerChan chan int
+
+    cmdFactory *cmd.CommandFactory
+    commandLogs map[string]int
 }
 
 type AppendEntryArgs struct {
@@ -50,9 +54,12 @@ type RequestVoteReply struct {
 }
 
 func (raft *Raft) appendCommand(command string, term int) {
+    fmt.Print("\nAppend command " + command + "\n")
     raft.logs = append(raft.logs, command)
     raft.logTerms = append(raft.logTerms, term)
     raft.index = len(raft.logs) - 1
+    commandId := raft.cmdFactory.GetCommandId(command)
+    raft.commandLogs[commandId] = raft.index
 }
 
 func (raft *Raft) resetCommand(prevLogIndex int) {
@@ -102,15 +109,14 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
 
     if raft.term < args.Term {
         raft.voteFor = -1
-        raft.leaderId = args.LeaderId
         raft.toFollowerChan <- args.Term
     }
+    raft.leaderId = args.LeaderId
 
     currentIndex := args.PrevLogIndex + 1
 
     if len(raft.logs) == currentIndex {
         if args.Command != "" {
-            fmt.Print("Append command " + args.Command + "\n")
             raft.appendCommand(args.Command, args.CommandTerm)
         } else {
             fmt.Print(".")
@@ -147,6 +153,7 @@ func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) err
     lastLogIndex, lastLogTerm := raft.getLastIndexAndTerm()
     if args.Term > raft.term {
         raft.voteFor = -1
+        raft.leaderId = -1
         raft.toFollowerChan <- args.Term
     }
 
