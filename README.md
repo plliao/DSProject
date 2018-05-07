@@ -15,7 +15,7 @@ Assignment | Verison
 --- | ---:
 Part 1: Basic web app | 0.1.0 
 Part 2: Separating Front End and Back End | 0.2.0 
-Part 3: Replicated Back End | 0.3.0
+Part 3: Replicated Back End | 0.3.1
 Part 4: Project Demo | 
 
 ## Usage
@@ -33,9 +33,9 @@ Part 4: Project Demo |
 
     Serve the backEnd server first.
 
-    `./backEnd -port your_port`
+    `./backEnd -id id_in_config -config config_file`
     
-    `./frontEnd -port your_port -b backEndAddress:port`
+    `./frontEnd -port your_port -config config_file`
 
     See more instructions by
   
