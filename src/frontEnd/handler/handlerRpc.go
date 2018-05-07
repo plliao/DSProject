@@ -23,8 +23,11 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
     stype := reflect.ValueOf(args)
     stype.Elem().FieldByName("CommandId").SetString(ID)
 
+    NotLeader := "Not Leader: "
+
     for {
         address, network := srv.GetConnectInfo()
+        fmt.Printf("\nDial to %v ", address)
         client, errDial := rpc.DialHTTP(network, address)
         if errDial == nil {
             reply := reflect.New(replyType)
@@ -35,28 +38,33 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
             }()
             select {
                 case errRPC = <-errRPCChan:
-                    fmt.Print("Get reply.\n")
+                    fmt.Printf(", Get reply from %v", address)
+
+                    ok := reply.Elem().Field(0).Interface().(bool)
+                    message := reply.Elem().Field(1).Interface().(string)
+
+                    if errRPC != nil {
+                        fmt.Printf("\n%v\n", errRPC.Error())
+                    } else if ok == false && strings.HasPrefix(message, NotLeader) {
+                        address = message[len(NotLeader):]
+                        if address != "" {
+                            fmt.Printf(", Get new Address %v", address)
+                            srv.SetConnectInfo(address, network)
+                            continue
+                        }
+                    } else {
+                        dupReply := reply.Interface()
+                        return errRPC, dupReply
+                    }
                 case <-time.After(2000 * time.Millisecond):
-                    srv.TryNextAddress()
-                    continue
+                    fmt.Printf(", Timeout")
             }
-            ok := reply.Elem().Field(0).Interface().(bool)
-            message := reply.Elem().Field(1).Interface().(string)
-            NotLeader := "Not Leader: "
-            if errRPC != nil {
-                srv.TryNextAddress()
-                time.Sleep(500 * time.Millisecond)
-            } else if ok == false && strings.HasPrefix(message, NotLeader) {
-                address = message[len(NotLeader):]
-                srv.SetConnectInfo(address, network)
-            } else {
-                dupReply := reply.Interface()
-                return errRPC, dupReply//reply.Interface()
-            }
-        } else{
-            srv.TryNextAddress()
-            time.Sleep(500 * time.Millisecond)
+        } else {
+            fmt.Printf("\n%v\n", errDial.Error())
         }
+        fmt.Printf(", Try next address")
+        srv.TryNextAddress()
+        time.Sleep(500 * time.Millisecond)
     }
 }
 
