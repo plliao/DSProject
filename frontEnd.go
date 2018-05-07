@@ -30,7 +30,7 @@ func createAndRegisterServerHandlers(
 
 func main() {
     httpPort := flag.Int("port", 8877, "Serving port")
-    //backendServer := flag.String("b", "71.125.15.10:80", "backend server ip and port e.g. 127.0.0.1:80")
+    config := flag.String("config", "config.txt", "Replica public address config file")
     pagesDir := flag.String("d", "pages", "Default directory of HTML pages")
     flag.Parse()
 
@@ -47,7 +47,7 @@ func main() {
     }
 
     var srv server.Server
-    srv.InitialDial("tcp", "config.txt")
+    srv.InitialDial("tcp", *config)
     srv.Init()
     registerHTMLs(&srv, htmls, *pagesDir)
     createAndRegisterServerHandlers(&srv, apiToServerHandlerFuncMap)
