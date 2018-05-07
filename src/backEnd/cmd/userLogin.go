@@ -1,6 +1,7 @@
 package cmd
 
 type UserLoginArgs struct {
+    CommandId string
     Username string
     Password string
 }

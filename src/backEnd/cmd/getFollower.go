@@ -6,6 +6,7 @@ type Relationship struct {
 }
 
 type GetFollowerArgs struct {
+    CommandId string
     Token string
 }
 
