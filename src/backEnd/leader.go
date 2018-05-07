@@ -2,12 +2,12 @@ package backEnd
 
 import (
     "fmt"
-    "reflect"
     "time"
+    "reflect"
 )
 
 func (srv *Server) leaderInit() {
-    srv.raft.isLeader = true
+    srv.raft.leaderId = srv.id
     for i, _ := range srv.addressBook {
         srv.nextIndexs[i] = len(srv.raft.logs)
     }
@@ -19,10 +19,14 @@ func (srv *Server) leaderInit() {
             go srv.followerHandler(i)
         }
     }
+    srv.raft.isLeader = true
 }
 
 func (srv *Server) leaderShutDown() {
     close(srv.commitChan)
+    for _, cmdValue := range srv.commandLogs {
+        srv.replyNotLeader(cmdValue)
+    }
     srv.raft.isLeader = false
 }
 
@@ -40,8 +44,11 @@ func (srv *Server) commitHandler() {
 
         if indexCount[index] > srv.getMajority() {
             for commitIndex := srv.raft.commitIndex + 1; commitIndex <= index; commitIndex++ {
-                fmt.Printf("Exec %v\n", srv.commandLogs)
                 encodedCmd := srv.raft.logs[commitIndex]
+                cmdTerm := srv.raft.logTerms[commitIndex]
+                log := fmt.Sprintf("CommitIndex %v, term %v, leader term %v: %v\n", commitIndex, cmdTerm, srv.raft.term, encodedCmd)
+                srv.logger.WriteString(log)
+                srv.logger.Flush()
                 results := srv.exec(encodedCmd)
                 srv.raft.commitIndex = commitIndex
 
@@ -58,15 +65,10 @@ func (srv *Server) commitHandler() {
 }
 
 func (srv *Server) followerHandler(index int) {
-    fmt.Print("Start to Connect with " + srv.addressBook[index] + "\n")
     client := RaftClient{address:srv.addressBook[index]}
     client.Init(srv.network, srv.addressBook[index])
-    fmt.Print("Successfully Connect with " + srv.addressBook[index] + "\n")
     delay := 1
     for {
-        if !srv.raft.isLeader {
-            break
-        }
         nextIndex := srv.nextIndexs[index]
         var command string
 
@@ -74,7 +76,8 @@ func (srv *Server) followerHandler(index int) {
             command = ""
             nextIndex = srv.raft.index + 1
             time.Sleep(time.Duration(delay) * srv.timeout)
-            delay++
+            //delay++
+            fmt.Printf("*")
         } else {
             command = srv.raft.logs[nextIndex]
         }
@@ -82,6 +85,11 @@ func (srv *Server) followerHandler(index int) {
         _, commandTerm := srv.raft.getIndexAndTerm(nextIndex)
         preLogIndex, preLogTerm := srv.raft.getIndexAndTerm(nextIndex - 1)
 
+        srv.rwLock.RLock()
+        if !srv.raft.isLeader {
+            srv.rwLock.RUnlock()
+            break
+        }
         reply, err := client.AppendEntry(
             srv.raft.term,
             srv.id,
@@ -91,7 +99,7 @@ func (srv *Server) followerHandler(index int) {
             commandTerm,
             srv.raft.commitIndex,
         )
-        //fmt.Printf("Replicate to index:%v, term:%v, prevLogIndex:%v, preLogTerm:%v, command:%v, commit:%v\n", index, srv.raft.term, preLogIndex, preLogTerm, command, srv.raft.commitIndex)
+        srv.rwLock.RUnlock()
 
         if err != nil {
             fmt.Print(err)
@@ -111,6 +119,9 @@ func (srv *Server) followerHandler(index int) {
             }
         } else {
             srv.nextIndexs[index]--
+            if srv.nextIndexs[index] < 0 {
+                srv.nextIndexs[index] = 0
+            }
         }
     }
 }
