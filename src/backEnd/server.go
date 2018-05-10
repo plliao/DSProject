@@ -224,6 +224,8 @@ func (srv *Server) appendCommand(cmdValue reflect.Value) {
     if _, ok := srv.raft.commandLogs[commandId]; !ok {
         srv.commandLogs[commandId] = cmdValue
         srv.raft.appendCommand(encodedCmd, srv.raft.term)
+    } else {
+        fmt.Printf("\nAppend fail\n")
     }
 }
 
