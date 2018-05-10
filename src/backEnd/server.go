@@ -155,7 +155,9 @@ func (srv *Server) replyWithResults(cmdValue reflect.Value, results []reflect.Va
         reply.Elem().Field(index).Set(value)
     }
     fmt.Printf("\nReply Command: %v, reply: %v\n", cmdValue.Type().Name(), reply)
-    cmdValue.Field(1).Send(reply)
+    if !cmdValue.Field(1).IsNil() {
+        cmdValue.Field(1).Send(reply)
+    }
 }
 
 func (srv *Server) replyNotLeader(cmdValue reflect.Value) {
@@ -224,7 +226,8 @@ func (srv *Server) appendCommand(cmdValue reflect.Value) {
     if _, ok := srv.raft.commandLogs[commandId]; !ok {
         srv.commandLogs[commandId] = cmdValue
         srv.raft.appendCommand(encodedCmd, srv.raft.term)
-    } else {
+    } else if _, ok := srv.commandLogs[commandId]; !ok {
+        srv.commandLogs[commandId] = cmdValue
         fmt.Printf("\nCommand %v exists\n", commandId)
     }
 }

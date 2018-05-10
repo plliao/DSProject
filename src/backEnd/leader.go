@@ -19,6 +19,7 @@ func (srv *Server) leaderInit() {
             go srv.followerHandler(i)
         }
     }
+    srv.appendCommand(reflect.ValueOf(srv.cmdFactory.MakeDummyCommand()))
     srv.raft.isLeader = true
 }
 

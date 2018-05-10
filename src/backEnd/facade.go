@@ -111,3 +111,7 @@ func (srv *Server) GetFollower(token string) (bool, string, []*cmd.Relationship)
     }
     return false, srv.messages.UnrecognizedToken, nil
 }
+
+func (srv *Server) Dummy() (bool, string) {
+    return true, srv.messages.NoError
+}
