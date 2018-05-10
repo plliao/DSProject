@@ -278,9 +278,10 @@ func (srv *Server) Start() {
     srv.logger = bufio.NewWriter(f)
 
     srv.followerInit()
-    rpc.Register(srv.service)
-    rpc.Register(srv.raft)
-    rpc.HandleHTTP()
+    rpcServer := rpc.NewServer()
+    rpcServer.Register(srv.service)
+    rpcServer.Register(srv.raft)
+    rpcServer.HandleHTTP(rpc.DefaultRPCPath + address, rpc.DefaultDebugPath + address)
     l, e := net.Listen("tcp", ":" + port)
     if e != nil {
         log.Fatal("listen error:", e)
