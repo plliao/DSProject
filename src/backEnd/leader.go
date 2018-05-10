@@ -78,8 +78,8 @@ func (srv *Server) followerHandler(index int) {
             srv.nextIndexs[index] = srv.raft.index + 1
             nextIndex = srv.nextIndexs[index]
             time.Sleep(time.Duration(delay) * srv.timeout)
-            //delay++
-            fmt.Printf("%v", len(srv.raft.logs))
+            delay++
+            fmt.Printf("*")
         } else {
             command = srv.raft.logs[nextIndex]
         }
