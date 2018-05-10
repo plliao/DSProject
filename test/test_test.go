@@ -28,8 +28,8 @@ func (cfg *Config) init (leng int){
 
 func (cfg *Config) initBackend(id int) {
     cfg.backEndSrvs[id] = &backEnd.Server{}
-    cfg.mu.Lock()
-    defer cfg.mu.Unlock()
+    //cfg.mu.Lock()
+    //defer cfg.mu.Unlock()
     StartBackEnd(id, cfg.backEndSrvs[id], cfg.addrConfig)
     //cfg.mu.Unlock()
 }
@@ -61,34 +61,31 @@ func StartBackEnd(id int, srv *backEnd.Server, config string) {
     fmt.Printf("StartBackEnd: %d \n", id)
     srv.Init(id)
     setUpAddress(srv, config)
-    srv.Start()
+    go srv.Start()
     //return srv
 }
 
 func TestOneBackEndServer(t *testing.T){
     var frontEndSrv server.Server
     cfg := &Config{}
-    addrConfig := "config.txt"
+    addrConfig := "../config.txt"
     frontEndSrv.InitialDial("tcp", addrConfig)
     addrBook := frontEndSrv.GetAddressBook()
     backEndNum := len(addrBook)
     cfg.init(backEndNum)
     cfg.addrConfig = addrConfig
-    
+
     for id := 0; id < backEndNum; id++{
         fmt.Printf("id: %d\n", id)
-        go cfg.initBackend(id)
+        cfg.initBackend(id)
     }
 
     _, reply1 := handler.ClientRegisterUserRPC("User1", "user1pw", &frontEndSrv)
     token := reply1.Token
     handler.ClientPostRPC(token, "user1 post 1", &frontEndSrv)
     handler.ClientGetMyContentRPC(token, &frontEndSrv)
-    handler.ClientPostRPC(token, "user1 post 2", &frontEndSrv)
-    //for{
-
-    //}
-    if(true){
-        t.Errorf("Token: %s.", token)
+    _, reply2 := handler.ClientPostRPC(token, "user1 post 2", &frontEndSrv)
+    if !reply2.Ok {
+        t.Errorf(reply2.Error)
     }
 }
