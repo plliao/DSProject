@@ -4,9 +4,11 @@ import (
     "fmt"
     "time"
     "backEnd/cmd"
+    "sync"
 )
 
 type Raft struct {
+    rwLock *sync.RWMutex
     isLeader bool
     leaderId int
 
@@ -110,6 +112,7 @@ func (raft *Raft) AppendEntry(args AppendEntryArgs, reply *AppendEntryReply) err
     if raft.term < args.Term {
         raft.voteFor = -1
         raft.toFollowerChan <- args.Term
+        raft.term = args.Term
     }
     raft.leaderId = args.LeaderId
 
@@ -151,10 +154,12 @@ func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) err
     }
 
     lastLogIndex, lastLogTerm := raft.getLastIndexAndTerm()
+    raft.rwLock.Lock()
     if args.Term > raft.term {
         raft.voteFor = -1
         raft.leaderId = -1
         raft.toFollowerChan <- args.Term
+        raft.term = args.Term
     }
 
     if (raft.voteFor < 0 || raft.voteFor == args.CandidateId) &&
@@ -162,5 +167,6 @@ func (raft *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) err
         reply.VoteGranted = true
         raft.voteFor = args.CandidateId
     }
+    raft.rwLock.Unlock()
     return nil
 }

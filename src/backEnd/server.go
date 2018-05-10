@@ -220,7 +220,7 @@ func (srv *Server) execCommit(commitIndex int) []reflect.Value {
 func (srv *Server) toFollowerHandler() {
     for term := range srv.raft.toFollowerChan {
         srv.rwLock.Lock()
-        if srv.raft.term < term {
+        if srv.raft.term <= term {
             srv.raft.term = term
             if srv.raft.isLeader {
                 srv.leaderShutDown()
@@ -274,6 +274,7 @@ func (srv *Server) Start() {
     go srv.runCommands()
 
     srv.raft = &Raft{
+        rwLock:&sync.RWMutex{},
         isLeader:false,
         leaderId:-1,
         term:0,
