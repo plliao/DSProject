@@ -22,7 +22,7 @@ func (client *RaftClient) Init(network string, address string) {
 }
 
 func (client *RaftClient) InitOnce(network string, address string) error {
-    rpcClient, err := rpc.DialHTTP(network, address)
+    rpcClient, err := rpc.DialHTTPPath(network, address, rpc.DefaultRPCPath + address)
     client.rpcClient = rpcClient
     return err
 }
