@@ -79,10 +79,12 @@ func (srv *Server) heartBeatHandler(){
                     fmt.Printf("Election result: %v\n", voteRes)
                     if voteRes {
                         srv.rwLock.Lock()
-                        defer srv.rwLock.Unlock()
                         srv.followerShutDown()
                         srv.leaderInit()
+                        srv.rwLock.Unlock()
                         return
+                    } else {
+                        srv.lastBeatTime = time.Now()
                     }
                 case <-time.After(electionTimer):
                     srv.lastBeatTime = time.Now()
