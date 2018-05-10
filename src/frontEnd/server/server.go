@@ -33,6 +33,10 @@ func (srv *Server) SetConnectInfo(address string, network string) {
     srv.network = network
 }
 
+func (srv *Server) GetAddressBook() []string{
+    return srv.serverAddress
+}
+
 func (srv *Server) TryNextAddress() {
     srv.leaderId = (srv.leaderId + 1) % len(srv.serverAddress)
     srv.leaderAddress = srv.serverAddress[srv.leaderId]
@@ -42,7 +46,7 @@ func (srv *Server)ClientConnect() (*rpc.Client, error){
     var err error
     var client *rpc.Client
     for i := 0; i< len(srv.serverAddress); i++{
-        client, err := rpc.DialHTTP(srv.network, srv.serverAddress[i])
+        client, err := rpc.Dial(srv.network, srv.serverAddress[i])
         if(err == nil){
             return client, err
         }

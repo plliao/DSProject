@@ -2,7 +2,7 @@ package main
 
 import(
     //"net/rpc"
-    //"time"
+    "time"
     "fmt"
     "frontEnd/server"
     "frontEnd/handler"
@@ -27,10 +27,11 @@ func (cfg *Config) init (leng int){
 }
 
 func (cfg *Config) initBackend(id int) {
-    cfg.backEndSrvs[id] = &backEnd.Server{}
-    cfg.mu.Lock()
-    defer cfg.mu.Unlock()
-    StartBackEnd(id, cfg.backEndSrvs[id], cfg.addrConfig)
+    tmpsrv := backEnd.Server{}
+    //cfg.mu.Lock()
+    //defer cfg.mu.Unlock()
+    StartBackEnd(id, &tmpsrv, cfg.addrConfig)
+    cfg.backEndSrvs[id] =&tmpsrv
     //cfg.mu.Unlock()
 }
 
@@ -78,6 +79,7 @@ func TestOneBackEndServer(t *testing.T){
     for id := 0; id < backEndNum; id++{
         fmt.Printf("id: %d\n", id)
         go cfg.initBackend(id)
+        time.Sleep(2 * time.Second)
     }
 
     _, reply1 := handler.ClientRegisterUserRPC("User1", "user1pw", &frontEndSrv)
