@@ -24,6 +24,10 @@ func (srv *Server) GetConnectInfo() (string, string) {
     return srv.leaderAddress, srv.network
 }
 
+func (srv *Server) GetAddressBook() []string{
+    return srv.serverAddress
+}
+
 func (srv *Server) SetConnectInfo(address string, network string) {
     srv.leaderAddress = address
     srv.network = network
