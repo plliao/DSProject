@@ -27,7 +27,7 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
 
     for {
         address, network := srv.GetConnectInfo()
-        fmt.Printf("\nDial to %v ", address)
+        fmt.Printf("\n%v: Dial to %v ", ID, address)
         client, errDial := rpc.DialHTTPPath(network, address, rpc.DefaultRPCPath + address)
         if errDial == nil {
             reply := reflect.New(replyType)
@@ -56,7 +56,7 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
                         dupReply := reply.Interface()
                         return errRPC, dupReply
                     }
-                case <-time.After(2000 * time.Millisecond):
+                case <-time.After(5000 * time.Millisecond):
                     fmt.Printf(", Timeout")
             }
         } else {
