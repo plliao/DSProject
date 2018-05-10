@@ -3,6 +3,8 @@ package cmd
 import (
     "reflect"
     "encoding/json"
+    "fmt"
+    "crypto/rand"
 )
 
 type CommandFactory struct {
@@ -20,6 +22,7 @@ func (factory *CommandFactory) Init() {
     factory.commandMap["Post"] = reflect.TypeOf(PostArgs{})
     factory.commandMap["GetMyContent"] = reflect.TypeOf(GetMyContentArgs{})
     factory.commandMap["GetFollower"] = reflect.TypeOf(GetFollowerArgs{})
+    factory.commandMap["Dummy"] = reflect.TypeOf(DummyArgs{})
 }
 
 type Command struct {
@@ -59,4 +62,11 @@ func (factory *CommandFactory) decode(encoded string) (string, []reflect.Value) 
 func (factory *CommandFactory) GetCommandId(encoded string) string {
     _, parameters := factory.decode(encoded)
     return parameters[0].Interface().(string)
+}
+
+func (factory *CommandFactory) MakeDummyCommand() Dummy {
+    token := make([]byte, 6)
+    rand.Read(token)
+    dummyArgs := DummyArgs{CommandId:fmt.Sprintf("%x", token)}
+    return Dummy{Args:&dummyArgs, Channel:nil}
 }
