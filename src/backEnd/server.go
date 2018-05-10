@@ -2,7 +2,7 @@ package backEnd
 
 import (
     "net"
-    "net/http"
+    //"net/http"
     "net/rpc"
     "log"
     "regexp"
@@ -16,6 +16,7 @@ import (
     "strings"
     "bufio"
     "os"
+    "strconv"
 )
 
 type Server struct {
@@ -277,15 +278,26 @@ func (srv *Server) Start() {
     defer f.Close()
     srv.logger = bufio.NewWriter(f)
 
+
+    newSrv := rpc.NewServer()
+
     srv.followerInit()
-    rpc.Register(srv.service)
-    rpc.Register(srv.raft)
-    rpc.HandleHTTP()
+    newSrv.Register(srv.service)
+    newSrv.Register(srv.raft)
+
+    
+    idStr := strconv.Itoa(srv.id)
+    rpcPath := "/" + idStr//"/_goRPC_" +
+    debugPath := "/debug/" + idStr //debug/rpc/
+    newSrv.HandleHTTP(rpcPath, debugPath)
+
+    //rpc.HandleHTTP()
     l, e := net.Listen("tcp", ":" + port)
     if e != nil {
         log.Fatal("listen error:", e)
     }
     fmt.Print("BackEnd serving on " + address + "\n")
-    http.Serve(l, nil)
+    //http.Serve(l, nil)
+    newSrv.Accept(l)
 }
 
