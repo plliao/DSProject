@@ -28,7 +28,7 @@ func ClientCall(service string, args interface{}, replyType reflect.Type, srv *s
     for {
         address, network := srv.GetConnectInfo()
         fmt.Printf("\nDial to %v ", address)
-        client, errDial := rpc.DialHTTP(network, address)
+        client, errDial := rpc.Dial(network, address)
         if errDial == nil {
             reply := reflect.New(replyType)
             errRPCChan := make(chan error, 1)
