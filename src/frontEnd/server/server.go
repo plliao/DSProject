@@ -24,7 +24,7 @@ func (srv *Server) GetConnectInfo() (string, string) {
     return srv.leaderAddress, srv.network
 }
 
-func (srv *Server) GetAddressBook() {
+func (srv *Server) GetAddressBook() []string{
     return srv.serverAddress
 }
 
