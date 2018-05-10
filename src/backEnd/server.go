@@ -24,6 +24,7 @@ type Server struct {
     commands chan reflect.Value
     cmdFactory *cmd.CommandFactory
     commandLogs map[string]reflect.Value
+    executedCommands map[string]int
 
     rwLock *sync.RWMutex
     service *Service
@@ -51,6 +52,7 @@ func (srv *Server) Init(id int) {
     srv.users = make(map[string]*User)
     srv.tokens = make(map[string]*User)
     srv.commands = make(chan reflect.Value, 100)
+    srv.executedCommands = make(map[string]int)
     srv.cmdFactory = &cmd.CommandFactory{}
     srv.cmdFactory.Init()
 
@@ -171,6 +173,13 @@ func (srv *Server) replyNotLeader(cmdValue reflect.Value) {
     srv.replyWithResults(cmdValue, results)
 }
 
+func (srv *Server) replySuccess(cmdValue reflect.Value) {
+    results := make([]reflect.Value, 2)
+    results[0] = reflect.ValueOf(true)
+    results[1] = reflect.ValueOf(srv.messages.NoError)
+    srv.replyWithResults(cmdValue, results)
+}
+
 func (srv *Server) exec(encodedCmd string) []reflect.Value {
     srvValue := reflect.ValueOf(srv)
     funcName, parameters := srv.cmdFactory.Decode(encodedCmd)
@@ -185,6 +194,8 @@ func (srv *Server) exec(encodedCmd string) []reflect.Value {
     }
 
     results := f.Call(parameters)
+    commandId := srv.cmdFactory.GetCommandId(encodedCmd)
+    srv.executedCommands[commandId] = 1
     return results
 }
 
@@ -226,9 +237,10 @@ func (srv *Server) appendCommand(cmdValue reflect.Value) {
     if _, ok := srv.raft.commandLogs[commandId]; !ok {
         srv.commandLogs[commandId] = cmdValue
         srv.raft.appendCommand(encodedCmd, srv.raft.term)
+    } else if _, ok := srv.executedCommands[commandId]; ok {
+        srv.replySuccess(cmdValue)
     } else if _, ok := srv.commandLogs[commandId]; !ok {
         srv.commandLogs[commandId] = cmdValue
-        fmt.Printf("\nCommand %v exists\n", commandId)
     }
 }
 
