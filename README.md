@@ -9,6 +9,10 @@ Name | NID | Email
 PEI-LUN LIAO | N18410090 | pll273@nyu.edu
 I-TING CHEN | N19037964 | itc233@nyu.edu
 
+## Demo Slide
+
+https://docs.google.com/presentation/d/1XXrme0sOy5B8qAf9U2GoLpeiJQTffjy2gWrOLNwxNrE/edit?usp=sharing
+
 ## Verison
 
 Assignment | Verison
